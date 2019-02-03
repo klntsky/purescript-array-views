@@ -87,7 +87,7 @@ import Data.Traversable (class Foldable, class Traversable, foldMap, foldl, fold
 import Data.Tuple (Tuple)
 import Data.Unfoldable (class Unfoldable, unfoldr)
 import Data.Unfoldable1 (class Unfoldable1, unfoldr1)
-import Prelude (class Applicative, class Apply, class Bind, class Eq, class Functor, class Monad, class Monoid, class Ord, class Semigroup, class Show, type (~>), Ordering, apply, join, map, otherwise, (&&), (+), (-), (<), (<#>), (<<<), (<=), (<>), (==), (>=), (>>=), (>>>), (||))
+import Prelude (class Applicative, class Apply, class Bind, class Eq, class Functor, class Monad, class Monoid, class Ord, class Semigroup, class Show, type (~>), Ordering, apply, join, map, otherwise, (&&), (+), (-), (<), (>), (<#>), (<<<), (<=), (<>), (==), (>=), (>>=), (>>>), (||))
 import Data.Array as A
 import Data.Array.NonEmpty as NE
 import Data.Generic.Rep (class Generic)
@@ -299,7 +299,10 @@ slice f' to' (View from len arr) =
   where
     f  = fix f'
     to = fix to'
-    fix n = if n < 0 then len - n else n
+    cutNegative n = if n > 0 then n else 0
+    fix n
+      | n < 0 = cutNegative (len + n)
+      | otherwise = n
 
 -- | O(1)
 take :: forall a. Int -> ArrayView a -> ArrayView a
@@ -420,7 +423,7 @@ toArray (View from len arr)
   | from == 0 && A.length arr == len =
     arr
   | otherwise =
-    A.slice from len arr
+    A.slice from (from + len) arr
 
 -- internal
 
