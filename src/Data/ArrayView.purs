@@ -170,11 +170,13 @@ null _            = false
 length :: forall a. ArrayView a -> Int
 length (View _ len _) = len
 
+-- | O(n)
 cons :: forall a. a -> ArrayView a -> ArrayView a
 cons a av = fromArray (A.cons a (toArray av))
 
 infix 6 cons as :
 
+-- | O(n)
 snoc :: forall a. ArrayView a -> a -> ArrayView a
 snoc av a = fromArray (A.snoc (toArray av) a)
 
@@ -190,7 +192,7 @@ head (View from _ arr) = arr A.!! from
 
 last :: forall a. ArrayView a -> Maybe a
 last (View _    0   _)   = Nothing
-last (View from len arr) = arr A.!! (from + len)
+last (View from len arr) = arr A.!! (from + len - 1)
 
 tail :: forall a. ArrayView a -> Maybe (ArrayView a)
 tail (View _ 0 _) = Nothing
@@ -296,11 +298,17 @@ slice f' to' (View from len arr) =
                                           -- (allow it to be GC'ed)
   else View (from + f) (to - f) arr
   where
-    f  = fix f'
-    to = fix to'
-    cutNegative n = if n > 0 then n else 0
+    larr = A.length arr
+    f  = between 0 larr (fix f')
+    to = between 0 larr (fix to')
+    between x y n =
+      if n < x
+      then x
+      else if n > y
+           then y
+           else n
     fix n
-      | n < 0 = cutNegative (len + n)
+      | n < 0 = len + n
       | otherwise = n
 
 -- | O(1)
