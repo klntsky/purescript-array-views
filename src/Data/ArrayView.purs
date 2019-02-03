@@ -82,17 +82,17 @@ where
 import Control.Alternative (class Alternative)
 import Control.Lazy (class Lazy)
 import Control.Monad.Rec.Class (class MonadRec)
-import Data.NonEmpty (NonEmpty, (:|))
-import Data.Traversable (class Foldable, class Traversable, foldMap, foldl, foldr, sequenceDefault, traverse)
-import Data.Tuple (Tuple)
-import Data.Unfoldable (class Unfoldable, unfoldr)
-import Data.Unfoldable1 (class Unfoldable1, unfoldr1)
-import Prelude (class Applicative, class Apply, class Bind, class Eq, class Functor, class Monad, class Monoid, class Ord, class Semigroup, class Show, type (~>), Ordering, apply, show, join, map, otherwise, (&&), (+), (-), (<), (>), (<#>), (<<<), (<=), (<>), (==), (>=), (>>=), (>>>), (||))
 import Data.Array as A
 import Data.Array.NonEmpty as NE
 import Data.Generic.Rep (class Generic)
 import Data.Maybe (Maybe(..))
+import Data.NonEmpty (NonEmpty, (:|))
 import Data.Profunctor.Strong ((***))
+import Data.Traversable (class Foldable, class Traversable, foldMap, foldl, foldr, sequenceDefault, traverse)
+import Data.Tuple (Tuple)
+import Data.Unfoldable (class Unfoldable, unfoldr)
+import Data.Unfoldable1 (class Unfoldable1, unfoldr1)
+import Prelude (class Applicative, class Apply, class Bind, class Eq, class Functor, class Monad, class Monoid, class Ord, class Semigroup, class Show, type (~>), Ordering, apply, join, map, otherwise, show, (&&), (+), (-), (<), (<#>), (<<<), (<=), (<>), (==), (>), (>=), (>>=), (>>>), (||))
 
 data ArrayView a = View Int Int (Array a)
 
@@ -148,24 +148,24 @@ singleton :: forall a. a -> ArrayView a
 singleton a = View 0 1 [a]
 
 range :: Int -> Int -> ArrayView Int
-range f = fromArray <<< A.range f
+range f = A.range f >>> fromArray
 
 infix 8 range as ..
 
 replicate :: forall a. Int -> a -> ArrayView a
-replicate i = fromArray <<< A.replicate i
+replicate i = A.replicate i >>> fromArray
 
 -- Using `Lazy (f (ArrayView a))` constraint is impossible due to `OrphanInstances`.
 some :: forall f a. Alternative f => Lazy (f (Array a)) => f a -> f (ArrayView a)
-some = map fromArray <<< A.some
+some = A.some >>> map fromArray
 
 -- Using `Lazy (f (ArrayView a))` constraint is impossible due to `OrphanInstances`.
 many :: forall f a. Alternative f => Lazy (f (Array a)) => f a -> f (ArrayView a)
-many = map fromArray <<< A.many
+many = A.many >>> map fromArray
 
 null :: forall a. ArrayView a -> Boolean
-null (View _ 0 _) = true
-null _            = false
+null (View _ 0 _) = false
+null _            = true
 
 length :: forall a. ArrayView a -> Int
 length (View _ len _) = len
@@ -187,26 +187,25 @@ insertBy :: forall a. (a -> a -> Ordering) -> a -> ArrayView a -> ArrayView a
 insertBy f a = toArray >>> A.insertBy f a >>> fromArray
 
 head :: forall a. ArrayView a -> Maybe a
-head (View _    0 _)   = Nothing
-head (View from _ arr) = arr A.!! from
+head = join <<< justNonEmpty \(View from _ arr) -> arr A.!! from
 
 last :: forall a. ArrayView a -> Maybe a
-last (View _    0   _)   = Nothing
-last (View from len arr) = arr A.!! (from + len - 1)
+last = join <<< justNonEmpty \(View from len arr) -> arr A.!! (from + len - 1)
 
 tail :: forall a. ArrayView a -> Maybe (ArrayView a)
-tail (View _ 0 _) = Nothing
-tail av           = Just (unsafeTail av)
+tail = justNonEmpty unsafeTail
 
 init :: forall a. ArrayView a -> Maybe (ArrayView a)
 init = justNonEmpty unsafeInit
 
+-- | O(1)
 uncons :: forall a. ArrayView a -> Maybe { head :: a, tail :: ArrayView a }
 uncons =
   join <<< justNonEmpty
   (\av @ (View from len arr) ->
     arr A.!! from <#> \head -> { head, tail: unsafeTail av })
 
+-- | O(1)
 unsnoc :: forall a. ArrayView a -> Maybe { init :: ArrayView a, last :: a }
 unsnoc =
   join <<< justNonEmpty
@@ -413,13 +412,13 @@ unzip :: forall a b. ArrayView (Tuple a b) -> Tuple (ArrayView a) (ArrayView b)
 unzip = (fromArray *** fromArray) <<< A.unzip <<< toArray
 
 foldM :: forall m a b. Monad m => (a -> b -> m a) -> a -> ArrayView b -> m a
-foldM f a = A.foldM f a <<< toArray
+foldM f a = toArray >>> A.foldM f a
 
 foldRecM :: forall m a b. MonadRec m => (a -> b -> m a) -> a -> ArrayView b -> m a
-foldRecM f a = A.foldRecM f a <<< toArray
+foldRecM f a = toArray >>> A.foldRecM f a
 
 unsafeIndex :: forall a. Partial => ArrayView a -> Int -> a
-unsafeIndex = A.unsafeIndex <<< toArray
+unsafeIndex = toArray >>> A.unsafeIndex
 
 fromArray :: Array ~> ArrayView
 fromArray arr = let len = A.length arr in
@@ -445,7 +444,7 @@ via :: forall a b. (Array a -> Array b) -> ArrayView a -> ArrayView b
 via f = toArray >>> f >>> fromArray
 
 use :: forall a b c. (a -> Array c -> Array b) -> a -> ArrayView c -> ArrayView b
-use f = via <<< f
+use f = f >>> via
 
 useAndMap :: forall a b c f. Functor f => (a -> Array c -> f (Array b)) -> a -> ArrayView c -> f (ArrayView b)
 useAndMap f a av = f a (toArray av) <#> fromArray

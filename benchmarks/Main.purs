@@ -31,7 +31,7 @@ withUncons uncons = go
 benchWithUncons :: Benchmark
 benchWithUncons = mkBenchmark
   { slug: "withUncons"
-  , title: "Iterate list using uncons"
+  , title: "Iterate over the structure using uncons"
   , sizes: A.range 0 15 <#> (_ * 200)
   , sizeInterpretation: "n"
   , inputsPerSize: 1
