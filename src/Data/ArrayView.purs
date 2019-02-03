@@ -176,8 +176,8 @@ many :: forall f a. Alternative f => Lazy (f (Array a)) => f a -> f (ArrayView a
 many = A.many >>> map fromArray
 
 null :: forall a. ArrayView a -> Boolean
-null (View _ 0 _) = false
-null _            = true
+null (View _ 0 _) = true
+null _            = false
 
 length :: forall a. ArrayView a -> Int
 length (View _ len _) = len
@@ -228,7 +228,7 @@ unsnoc av @ (View from len arr) = do
 
 index :: forall a. ArrayView a -> Int -> Maybe a
 index av @ (View from len arr) ix
-  | ix >= len = Nothing
+  | ix >= len || ix < 0 = Nothing
   | otherwise = arr A.!! (from + ix)
 
 infixl 8 index as !!
@@ -311,9 +311,8 @@ slice f' to' (View from len arr) =
                                           -- (allow it to be GC'ed)
   else View (from + f) (to - f) arr
   where
-    larr = A.length arr
-    f  = between 0 larr (fix f')
-    to = between 0 larr (fix to')
+    f  = between 0 len (fix f')
+    to = between 0 len (fix to')
     between x y n =
       if n < x
       then x
