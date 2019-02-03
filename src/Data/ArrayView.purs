@@ -87,11 +87,10 @@ import Data.Traversable (class Foldable, class Traversable, foldMap, foldl, fold
 import Data.Tuple (Tuple)
 import Data.Unfoldable (class Unfoldable, unfoldr)
 import Data.Unfoldable1 (class Unfoldable1, unfoldr1)
-import Prelude (class Applicative, class Apply, class Bind, class Eq, class Functor, class Monad, class Monoid, class Ord, class Semigroup, class Show, type (~>), Ordering, apply, join, map, otherwise, (&&), (+), (-), (<), (>), (<#>), (<<<), (<=), (<>), (==), (>=), (>>=), (>>>), (||))
+import Prelude (class Applicative, class Apply, class Bind, class Eq, class Functor, class Monad, class Monoid, class Ord, class Semigroup, class Show, type (~>), Ordering, apply, show, join, map, otherwise, (&&), (+), (-), (<), (>), (<#>), (<<<), (<=), (<>), (==), (>=), (>>=), (>>>), (||))
 import Data.Array as A
 import Data.Array.NonEmpty as NE
 import Data.Generic.Rep (class Generic)
-import Data.Generic.Rep.Show (genericShow)
 import Data.Maybe (Maybe(..))
 import Data.Profunctor.Strong ((***))
 
@@ -100,7 +99,7 @@ data ArrayView a = View Int Int (Array a)
 derive instance genericArrayView :: Generic (ArrayView a) _
 
 instance showArrayView :: Show a => Show (ArrayView a) where
-  show = genericShow
+  show av  = "fromArray " <> show (toArray av)
 
 derive instance eqArrayView :: Eq a => Eq (ArrayView a)
 
