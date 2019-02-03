@@ -92,7 +92,9 @@ import Data.Traversable (class Foldable, class Traversable, foldMap, foldl, fold
 import Data.Tuple (Tuple)
 import Data.Unfoldable (class Unfoldable, unfoldr)
 import Data.Unfoldable1 (class Unfoldable1, unfoldr1)
-import Prelude (class Applicative, class Apply, class Bind, class Eq, class Functor, class Monad, class Monoid, class Ord, class Semigroup, class Show, type (~>), Ordering, apply, join, map, otherwise, show, (&&), (+), (-), (<), (<#>), (<<<), (<=), (<>), (==), (>), (>=), (>>=), (>>>), (||))
+import Data.Eq (class Eq1, eq1)
+import Data.Ord (class Ord1, compare1)
+import Prelude (class Applicative, class Apply, class Bind, class Eq, class Functor, class Monad, class Monoid, class Ord, class Semigroup, class Show, type (~>), Ordering, apply, join, pure, bind, map, otherwise, show, compare, (&&), (+), (-), (<), (<#>), (<<<), (<=), (<>), (==), (>), (>=), (>>=), (>>>), (||))
 
 data ArrayView a = View Int Int (Array a)
 
@@ -101,7 +103,17 @@ derive instance genericArrayView :: Generic (ArrayView a) _
 instance showArrayView :: Show a => Show (ArrayView a) where
   show av  = "fromArray " <> show (toArray av)
 
-derive instance eqArrayView :: Eq a => Eq (ArrayView a)
+instance eqArrayView :: Eq a => Eq (ArrayView a) where
+  eq a b = toArray a == toArray b
+
+instance eq1ArrayView :: Eq1 ArrayView where
+  eq1 a b = toArray a `eq1` toArray b
+
+instance ordArrayView :: Ord a => Ord (ArrayView a) where
+  compare a b = toArray a `compare` toArray b
+
+instance ord1ArrayView :: Ord1 ArrayView where
+  compare1 a b = toArray a `compare1` toArray b
 
 instance functorArrayView :: Functor ArrayView where
   map f = toArray >>> map f >>> fromArray
@@ -192,25 +204,27 @@ head = join <<< justNonEmpty \(View from _ arr) -> arr A.!! from
 last :: forall a. ArrayView a -> Maybe a
 last = join <<< justNonEmpty \(View from len arr) -> arr A.!! (from + len - 1)
 
+-- | O(1)
 tail :: forall a. ArrayView a -> Maybe (ArrayView a)
 tail = justNonEmpty unsafeTail
 
+-- | O(1)
 init :: forall a. ArrayView a -> Maybe (ArrayView a)
 init = justNonEmpty unsafeInit
 
 -- | O(1)
 uncons :: forall a. ArrayView a -> Maybe { head :: a, tail :: ArrayView a }
-uncons =
-  join <<< justNonEmpty
-  (\av @ (View from len arr) ->
-    arr A.!! from <#> \head -> { head, tail: unsafeTail av })
+uncons av @ (View from _ arr) = do
+  head <- arr A.!! from
+  tail <- tail av
+  pure { head, tail }
 
 -- | O(1)
 unsnoc :: forall a. ArrayView a -> Maybe { init :: ArrayView a, last :: a }
-unsnoc =
-  join <<< justNonEmpty
-  (\av @ (View from len arr) ->
-    arr A.!! (from + len) <#> \last -> { init: unsafeInit av, last })
+unsnoc av @ (View from len arr) = do
+  init <- init av
+  last <- arr A.!! (from + len - 1)
+  pure { init, last }
 
 index :: forall a. ArrayView a -> Int -> Maybe a
 index av @ (View from len arr) ix

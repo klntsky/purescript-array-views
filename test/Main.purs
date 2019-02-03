@@ -22,6 +22,10 @@ main = do
     let a  = A.range 1 len
         av = AV.range 1 len
 
+    -- fromArray >>> toArray == identity
+    assertEqual { expected: a
+                , actual: toArray (fromArray a) }
+
     for_ (-10 A... 10) \i -> do
       for_ (-10 A...10) \j -> do
           logDebug (" a: "   <> show a <>
@@ -31,6 +35,18 @@ main = do
                     " j: "   <> show j)
           let aslice = A.slice i j a
               avslice = AV.slice i j av
+
+          -- Eq
+          assertEqual { expected: aslice == aslice
+                      , actual: avslice == avslice }
+
+          -- Ord
+          assertEqual { expected: aslice `compare` aslice
+                      , actual: avslice `compare` avslice }
+
+          -- fromArray <<< toArray == identity
+          assertEqual { expected: avslice
+                      , actual: fromArray (toArray avslice) }
 
           assertEqual { expected: aslice
                       , actual: toArray avslice }
@@ -50,5 +66,11 @@ main = do
           assertEqual { expected: A.uncons aslice
                       , actual: map fixTail (AV.uncons avslice) }
 
+          assertEqual { expected: A.unsnoc aslice
+                      , actual: map fixInit (AV.unsnoc avslice) }
+
 fixTail :: forall a. { tail :: ArrayView a, head :: a } -> { head :: a, tail :: Array a }
 fixTail { head, tail } = { head, tail: toArray tail }
+
+fixInit :: forall a. { init :: ArrayView a, last :: a } -> { last :: a, init :: Array a }
+fixInit { last, init } = { last, init: toArray init }
