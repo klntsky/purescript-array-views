@@ -94,9 +94,12 @@ import Data.Unfoldable (class Unfoldable, unfoldr)
 import Data.Unfoldable1 (class Unfoldable1, unfoldr1)
 import Data.Eq (class Eq1, eq1)
 import Data.Ord (class Ord1, compare1)
-import Prelude (class Applicative, class Apply, class Bind, class Eq, class Functor, class Monad, class Monoid, class Ord, class Semigroup, class Show, type (~>), Ordering, apply, join, pure, bind, map, otherwise, show, compare, (&&), (+), (-), (<), (<#>), (<<<), (<=), (<>), (==), (>), (>=), (>>=), (>>>), (||))
+import Prelude (class Applicative, class Apply, class Bind, class Eq, class Functor, class Monad, class Monoid, class Ord, class Semigroup, class Show, type (~>), Ordering, apply, bind, compare, join, map, otherwise, pure, show, (&&), (+), (-), (<), (<#>), (<<<), (<=), (<>), (==), (>), (>=), (>>=), (>>>), (||))
+import Data.Newtype (class Newtype)
 
-data ArrayView a = View Int Int (Array a)
+newtype ArrayView a = View { from :: Int, len :: Int, arr :: Array a }
+
+derive instance newtypeArrayView :: Newtype (ArrayView a) _
 
 derive instance genericArrayView :: Generic (ArrayView a) _
 
@@ -148,7 +151,7 @@ instance semigroupArrayView :: Semigroup (ArrayView a) where
   append a b = fromArray (toArray a <> toArray b)
 
 instance monoidArrayView :: Monoid (ArrayView a) where
-  mempty = View 0 0 []
+  mempty = empty
 
 fromFoldable :: forall f. Foldable f => f ~> ArrayView
 fromFoldable = A.fromFoldable >>> fromArray
@@ -157,7 +160,7 @@ toUnfoldable :: forall f. Unfoldable f => ArrayView ~> f
 toUnfoldable = toArray >>> A.toUnfoldable
 
 singleton :: forall a. a -> ArrayView a
-singleton a = View 0 1 [a]
+singleton a = View { from: 0, len: 1, arr: [a] }
 
 range :: Int -> Int -> ArrayView Int
 range f = A.range f >>> fromArray
@@ -176,11 +179,11 @@ many :: forall f a. Alternative f => Lazy (f (Array a)) => f a -> f (ArrayView a
 many = A.many >>> map fromArray
 
 null :: forall a. ArrayView a -> Boolean
-null (View _ 0 _) = true
-null _            = false
+null (View { len: 0 }) = true
+null _                 = false
 
 length :: forall a. ArrayView a -> Int
-length (View _ len _) = len
+length (View { len }) = len
 
 -- | O(n)
 cons :: forall a. a -> ArrayView a -> ArrayView a
@@ -199,10 +202,10 @@ insertBy :: forall a. (a -> a -> Ordering) -> a -> ArrayView a -> ArrayView a
 insertBy f a = toArray >>> A.insertBy f a >>> fromArray
 
 head :: forall a. ArrayView a -> Maybe a
-head = join <<< justNonEmpty \(View from _ arr) -> arr A.!! from
+head = join <<< justNonEmpty \(View { from, arr }) -> arr A.!! from
 
 last :: forall a. ArrayView a -> Maybe a
-last = join <<< justNonEmpty \(View from len arr) -> arr A.!! (from + len - 1)
+last = join <<< justNonEmpty \(View { from, len, arr }) -> arr A.!! (from + len - 1)
 
 -- | O(1)
 tail :: forall a. ArrayView a -> Maybe (ArrayView a)
@@ -214,20 +217,20 @@ init = justNonEmpty unsafeInit
 
 -- | O(1)
 uncons :: forall a. ArrayView a -> Maybe { head :: a, tail :: ArrayView a }
-uncons av @ (View from _ arr) = do
+uncons av @ (View { from, arr }) = do
   head <- arr A.!! from
   tail <- tail av
   pure { head, tail }
 
 -- | O(1)
 unsnoc :: forall a. ArrayView a -> Maybe { init :: ArrayView a, last :: a }
-unsnoc av @ (View from len arr) = do
+unsnoc av @ (View { from, len, arr }) = do
   init <- init av
   last <- arr A.!! (from + len - 1)
   pure { init, last }
 
 index :: forall a. ArrayView a -> Int -> Maybe a
-index av @ (View from len arr) ix
+index av @ (View { from, len, arr }) ix
   | ix >= len || ix < 0 = Nothing
   | otherwise = arr A.!! (from + ix)
 
@@ -252,19 +255,19 @@ deleteAt :: forall a. Int -> ArrayView a -> Maybe (ArrayView a)
 deleteAt = useAndMap A.deleteAt
 
 updateAt :: forall a. Int -> a -> ArrayView a -> Maybe (ArrayView a)
-updateAt ix = useAndMap (A.updateAt ix)
+updateAt = useAndMap <<< A.updateAt
 
 updateAtIndices :: forall t a. Foldable t => t (Tuple Int a) -> ArrayView a -> ArrayView a
 updateAtIndices = use A.updateAtIndices
 
 modifyAt :: forall a. Int -> (a -> a) -> ArrayView a -> Maybe (ArrayView a)
-modifyAt ix = useAndMap (A.modifyAt ix)
+modifyAt = useAndMap <<< A.modifyAt
 
 modifyAtIndices :: forall t a. Foldable t => t Int -> (a -> a) -> ArrayView a -> ArrayView a
-modifyAtIndices ixs f = via (A.modifyAtIndices ixs f)
+modifyAtIndices = use <<< A.modifyAtIndices
 
 alterAt :: forall a. Int -> (a -> Maybe a) -> ArrayView a -> Maybe (ArrayView a)
-alterAt ix = useAndMap (A.alterAt ix)
+alterAt = useAndMap <<< A.alterAt
 
 reverse :: forall a. ArrayView a -> ArrayView a
 reverse = via A.reverse
@@ -299,25 +302,26 @@ sort :: forall a. Ord a => ArrayView a -> ArrayView a
 sort = via A.sort
 
 sortBy :: forall a. (a -> a -> Ordering) -> ArrayView a -> ArrayView a
-sortBy f = via (A.sortBy f)
+sortBy = use A.sortBy
 
 sortWith :: forall a b. Ord b => (a -> b) -> ArrayView a -> ArrayView a
-sortWith f = via (A.sortWith f)
+sortWith = use A.sortWith
 
 -- | O(1)
 slice :: forall a. Int -> Int -> ArrayView a -> ArrayView a
-slice f' to' (View from len arr) =
-  if to <= f || f >= len then View 0 0 [] --  forget about the original array
-                                          -- (allow it to be GC'ed)
-  else View (from + f) (to - f) arr
+slice start' end' (View view @ { from, len, arr }) =
+  if end <= start || start >= len
+  then empty --  forget about the original array
+             -- (allow it to be GC'ed)
+  else View view { from = from + start, len = end - start }
   where
-    f  = between 0 len (fix f')
-    to = between 0 len (fix to')
-    between x y n =
-      if n < x
-      then x
-      else if n > y
-           then y
+    start = between 0 len (fix start')
+    end   = between 0 len (fix end')
+    between lb ub n =
+      if n < lb
+      then lb
+      else if n > ub
+           then ub
            else n
     fix n
       | n < 0 = len + n
@@ -355,11 +359,11 @@ span p av =
   -- we can take advantage of it.
   case go 0 of
     Just 0 ->
-      { init: View 0 0 [], rest: av }
+      { init: empty, rest: av }
     Just i ->
       { init: slice 0 i av, rest: slice i (length av) av }
     Nothing ->
-      { init: av, rest: View 0 0 [] }
+      { init: av, rest: empty }
   where
     go i =
       case index av i of
@@ -373,8 +377,8 @@ group' :: forall a. Ord a => ArrayView a -> ArrayView (NonEmpty ArrayView a)
 group' av = fromArray (A.group' (toArray av) <#> fromNonEmpty)
 
 fromNonEmpty :: NE.NonEmptyArray ~> NonEmpty ArrayView
-fromNonEmpty narr = let arr' = NE.uncons narr in
-  arr'.head :| fromArray (arr'.tail)
+fromNonEmpty nav = let t = NE.uncons nav in
+  t.head :| fromArray (t.tail)
 
 groupBy :: forall a. (a -> a -> Boolean) -> ArrayView a -> ArrayView (NonEmpty ArrayView a)
 groupBy f = map fromNonEmpty <<< via (A.groupBy f)
@@ -435,10 +439,10 @@ unsafeIndex = toArray >>> A.unsafeIndex
 
 fromArray :: Array ~> ArrayView
 fromArray arr = let len = A.length arr in
-  View 0 len arr
+  View { from: 0, len, arr }
 
 toArray :: ArrayView ~> Array
-toArray (View from len arr)
+toArray (View { from, len, arr })
   | from == 0 && A.length arr == len =
     arr
   | otherwise =
@@ -447,7 +451,7 @@ toArray (View from len arr)
 -- internal
 
 justNonEmpty :: forall a b. (ArrayView a -> b) -> ArrayView a -> Maybe b
-justNonEmpty _ (View _ 0 _) = Nothing
+justNonEmpty _ (View { len: 0 }) = Nothing
 justNonEmpty f av           = Just (f av)
 
 via2 :: forall a b c. (Array a -> Array b -> Array c) -> ArrayView a -> ArrayView b -> ArrayView c
@@ -463,7 +467,10 @@ useAndMap :: forall a b c f. Functor f => (a -> Array c -> f (Array b)) -> a -> 
 useAndMap f a av = f a (toArray av) <#> fromArray
 
 unsafeInit :: forall a. ArrayView a -> ArrayView a
-unsafeInit (View from len arr) = View from (len - 1) arr
+unsafeInit (View view) = View view { len = view.len - 1 }
 
 unsafeTail :: forall a. ArrayView a -> ArrayView a
-unsafeTail (View from len arr) = View (from + 1) (len - 1) arr
+unsafeTail (View view) = View view { from = view.from + 1, len = view.len - 1 }
+
+empty :: forall a. ArrayView a
+empty = View { from: 0, len: 0, arr: [] }
