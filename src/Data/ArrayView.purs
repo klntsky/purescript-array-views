@@ -3,6 +3,8 @@ module Data.ArrayView
        , fromArray
        , toArray
 
+       , force
+
        , fromFoldable
        , toUnfoldable
        , singleton
@@ -185,13 +187,13 @@ null _                 = false
 length :: forall a. ArrayView a -> Int
 length (View { len }) = len
 
--- | O(n)
+-- | *O(n)*
 cons :: forall a. a -> ArrayView a -> ArrayView a
 cons a av = fromArray (A.cons a (toArray av))
 
 infix 6 cons as :
 
--- | O(n)
+-- | *O(n)*
 snoc :: forall a. ArrayView a -> a -> ArrayView a
 snoc av a = fromArray (A.snoc (toArray av) a)
 
@@ -207,22 +209,22 @@ head = join <<< justNonEmpty \(View { from, arr }) -> arr A.!! from
 last :: forall a. ArrayView a -> Maybe a
 last = join <<< justNonEmpty \(View { from, len, arr }) -> arr A.!! (from + len - 1)
 
--- | O(1)
+-- | *O(1)*
 tail :: forall a. ArrayView a -> Maybe (ArrayView a)
 tail = justNonEmpty unsafeTail
 
--- | O(1)
+-- | *O(1)*
 init :: forall a. ArrayView a -> Maybe (ArrayView a)
 init = justNonEmpty unsafeInit
 
--- | O(1)
+-- | *O(1)*
 uncons :: forall a. ArrayView a -> Maybe { head :: a, tail :: ArrayView a }
 uncons av @ (View { from, arr }) = do
   head <- arr A.!! from
   tail <- tail av
   pure { head, tail }
 
--- | O(1)
+-- | *O(1)*
 unsnoc :: forall a. ArrayView a -> Maybe { init :: ArrayView a, last :: a }
 unsnoc av @ (View { from, len, arr }) = do
   init <- init av
@@ -307,7 +309,7 @@ sortBy = use A.sortBy
 sortWith :: forall a b. Ord b => (a -> b) -> ArrayView a -> ArrayView a
 sortWith = use A.sortWith
 
--- | O(1)
+-- | *O(1)*
 slice :: forall a. Int -> Int -> ArrayView a -> ArrayView a
 slice start' end' (View view @ { from, len, arr }) =
   if end <= start || start >= len
@@ -327,30 +329,30 @@ slice start' end' (View view @ { from, len, arr }) =
       | n < 0 = len + n
       | otherwise = n
 
--- | O(1)
+-- | *O(1)*
 take :: forall a. Int -> ArrayView a -> ArrayView a
 take n = slice 0 n
 
--- | O(1)
+-- | *O(1)*
 takeEnd :: forall a. Int -> ArrayView a -> ArrayView a
 takeEnd n xs = drop (length xs - n) xs
 
 takeWhile :: forall a. (a -> Boolean) -> ArrayView a -> ArrayView a
 takeWhile p xs = (span p xs).init
 
--- | O(1)
+-- | *O(1)*
 drop :: forall a. Int -> ArrayView a -> ArrayView a
 drop n av = slice n (length av) av
 
--- | O(1)
+-- | *O(1)*
 dropEnd :: forall a. Int -> ArrayView a -> ArrayView a
 dropEnd n xs = take (length xs - n) xs
 
 dropWhile :: forall a. (a -> Boolean) -> ArrayView a -> ArrayView a
 dropWhile p xs = (span p xs).rest
 
--- | The time complexity of `span` only depends on the size of the resulting
--- | `init` value.
+-- | The time complexity of `span` only depends on the length of the resulting
+-- | `init` ArrayView.
 span :: forall a. (a -> Boolean) -> ArrayView a ->
         { init :: ArrayView a, rest :: ArrayView a }
 span p av =
@@ -447,6 +449,17 @@ toArray (View { from, len, arr })
     arr
   | otherwise =
     A.slice from (from + len) arr
+
+-- | Perform deferred `slice`. This function allows the garbage collector to
+-- | free the array referenced by the given `ArrayView`.
+-- |
+-- | *O(n)*
+-- |
+-- | ```purescript
+-- | force = toArray >>> fromArray
+-- | ```
+force :: forall a. ArrayView a -> ArrayView a
+force = toArray >>> fromArray
 
 -- internal
 
