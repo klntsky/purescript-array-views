@@ -94,7 +94,7 @@ import Data.Unfoldable (class Unfoldable, unfoldr)
 import Data.Unfoldable1 (class Unfoldable1, unfoldr1)
 import Data.Eq (class Eq1, eq1)
 import Data.Ord (class Ord1, compare1)
-import Prelude (class Applicative, class Apply, class Bind, class Eq, class Functor, class Monad, class Monoid, class Ord, class Semigroup, class Show, type (~>), Ordering, apply, bind, compare, join, map, otherwise, pure, show, (&&), (+), (-), (<), (<#>), (<<<), (<=), (<>), (==), (>), (>=), (>>=), (>>>), (||))
+import Prelude (class Applicative, class Apply, class Bind, class Eq, class Functor, class Monad, class Monoid, class Ord, class Semigroup, class Show, type (~>), Ordering, apply, bind, compare, join, map, otherwise, pure, show, (&&), (+), (-), (<), (<#>), (<<<), (<=), (<>), (==), (>), (>=), (>>>), (||))
 import Data.Newtype (class Newtype)
 
 newtype ArrayView a = View { from :: Int, len :: Int, arr :: Array a }
@@ -125,7 +125,7 @@ instance applyArrayView :: Apply ArrayView where
   apply f arr = fromArray (apply (toArray f) (toArray arr))
 
 instance bindArrayView :: Bind ArrayView where
-  bind m f = fromArray ((toArray m) >>= (f >>> toArray))
+  bind m f = concatMap f m
 
 instance applicativeArrayView :: Applicative ArrayView where
   pure = singleton

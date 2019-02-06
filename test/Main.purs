@@ -1,41 +1,94 @@
 module Test.Main where
 
-import Prelude
-import Data.ArrayView as AV
-import Data.ArrayView (ArrayView, fromArray, toArray)
-import Data.Array as A
-import Test.Assert
-import Effect
 import Data.Foldable
-import Effect.Console
-import Data.Generic.Rep.Show (genericShow)
 import Data.Maybe
+import Data.Newtype
+import Data.Traversable
+import Effect
+import Effect.Console
+import Prelude
+import Test.Assert
+import Test.QuickCheck.Arbitrary
+import Test.QuickCheck.Laws.Data
+import Test.QuickCheck.Laws.Control
+import Type.Proxy
 
+import Data.Array as A
+import Data.ArrayView (ArrayView, fromArray, toArray)
+import Data.ArrayView as AV
+import Data.Generic.Rep.Show
+import Data.Generic.Rep
+
+-- * set to true to get verbose logs
 debug :: Boolean
 debug = false
 
-logDebug :: String -> Effect Unit
-logDebug = if debug then log else const (pure unit)
+
+-- * some boilerplate required to bypass OrphanInstances.
+newtype ArbitraryAV a = ArbitraryAV (ArrayView a)
+
+instance arbitraryArbitraryAV :: Arbitrary a => Arbitrary (ArbitraryAV a) where
+   arbitrary = ArbitraryAV <$> (fromArray <$> arbitrary)
+
+derive instance newtypeArbitraryAV :: Newtype (ArbitraryAV a) _
+derive newtype instance semigroupArbitraryAV :: Semigroup (ArbitraryAV a)
+derive newtype instance monoidArbitraryAV :: Monoid (ArbitraryAV a)
+derive newtype instance eqArbitraryAV :: Eq a => Eq (ArbitraryAV a)
+derive newtype instance foldableArbitraryAV :: Foldable ArbitraryAV
+derive newtype instance functorArbitraryAV :: Functor ArbitraryAV
+derive newtype instance applyArbitraryAV :: Apply ArbitraryAV
+derive newtype instance bindArbitraryAV :: Bind ArbitraryAV
+derive newtype instance applicativeArbitraryAV :: Applicative ArbitraryAV
+derive newtype instance monadArbitraryAV :: Monad ArbitraryAV
+derive newtype instance traversableArbitraryAV :: Traversable ArbitraryAV
+
+
+checkLaws :: Effect Unit
+checkLaws = do
+  checkSemigroup (Proxy :: Proxy (ArbitraryAV Int))
+  checkMonoid (Proxy :: Proxy (ArbitraryAV Int))
+  checkEq (Proxy :: Proxy (ArbitraryAV Int))
+  checkFoldable (Proxy2 :: Proxy2 ArbitraryAV)
+  checkFunctor (Proxy2 :: Proxy2 ArbitraryAV)
+  checkApply (Proxy2 :: Proxy2 ArbitraryAV)
+  checkBind (Proxy2 :: Proxy2 ArbitraryAV)
+  checkMonad (Proxy2 :: Proxy2 ArbitraryAV)
+  checkApplicative (Proxy2 :: Proxy2 ArbitraryAV)
+
 
 main :: Effect Unit
 main = do
+  checkLaws
+
+  -- Good old assertion testing.
+  -- In our case we need to check some properties after slicing, to ensure that
+  -- indices are correct. So relying solely on `quickeck-laws` is not enough.
+
+  -- For all possible lengths...
   for_ (0 A... 12) \len -> do
     let a  = A.range 1 len
         av = AV.range 1 len
 
-    -- fromArray >>> toArray == identity
     assertEqual { expected: a
                 , actual: toArray (fromArray a) }
 
+    logDebug ("-----------------------\n" <>
+              " a: "   <> show a <>
+              " av: "  <> inspect av)
+
+    -- for all possible indices i & j...
     for_ (-10 A... 10) \i -> do
       for_ (-10 A...10) \j -> do
-          logDebug (" a: "   <> show a <>
-                    " av: "  <> show av <>
-                    " len: " <> show len <>
-                    " i: "   <> show i <>
-                    " j: "   <> show j)
+
+          -- ...check that slices from i to j are equal
           let aslice = A.slice i j a
               avslice = AV.slice i j av
+
+          logDebug (" len: " <> show len <>
+                    " i: "   <> show i <>
+                    " j: "   <> show j <>
+                    " aslice: " <> show aslice <>
+                    " avslice: " <> inspect avslice)
 
           -- Eq
           assert (avslice == avslice)
@@ -96,6 +149,7 @@ main = do
           assertEqual { expected: A.unsnoc aslice
                       , actual: map fixInit (AV.unsnoc avslice) }
 
+          -- test functions that require additional index
           for_ (-1 A... 10) \ix -> do
             -- index
             assertEqual  { expected: A.index aslice ix
@@ -143,10 +197,10 @@ main = do
             -- concat
             -- concatMap
 
-            -- filter
+            -- slice
             assertEquals
-              (AV.filter even avslice)
-              (A.filter even aslice)
+              (AV.slice i ix avslice)
+              (A.slice  i ix aslice)
 
             -- partition
             -- filterA
@@ -156,11 +210,23 @@ main = do
             -- sort
             -- sortBy
             -- sortWith
-            -- slice
 
+          -- test functions that require a predicate
+          for_ [ (_ > 5)
+               , const false
+               , const true
+               , (\x -> x `mod` 2 == 1)
+               , (\x -> x `mod` 2 == 0)
+               , (_ < 5) ] \f -> do
+
+            -- span
+            assertEqual { expected: fixInitRest (A.span f aslice)
+                        , actual: AV.span f avslice }
+
+            -- filter
             assertEquals
-              (AV.slice i ix avslice)
-              (A.slice  i ix aslice)
+              (AV.filter f avslice)
+              (A.filter f aslice)
 
 fixTail :: forall a. { tail :: ArrayView a, head :: a } -> { head :: a, tail :: Array a }
 fixTail { head, tail } = { head, tail: toArray tail }
@@ -168,8 +234,9 @@ fixTail { head, tail } = { head, tail: toArray tail }
 fixInit :: forall a. { init :: ArrayView a, last :: a } -> { last :: a, init :: Array a }
 fixInit { last, init } = { last, init: toArray init }
 
-even :: Int -> Boolean
-even n = n `mod` 2 == 0
+fixInitRest :: forall a. { rest :: Array a, init :: Array a } -> { init :: ArrayView a, rest :: ArrayView a }
+fixInitRest { init, rest } = { init: fromArray init
+                             , rest: fromArray rest }
 
 assertEquals :: forall a. Eq a => Show a => ArrayView a -> Array a -> Effect Unit
 assertEquals av a = do
@@ -184,3 +251,9 @@ assertEqualsMaybe av a = do
               , actual: map fromArray a }
   assertEqual { expected: a
               , actual: map toArray av }
+
+logDebug :: String -> Effect Unit
+logDebug = if debug then log else const (pure unit)
+
+inspect :: forall a. Show a => ArrayView a -> String
+inspect = genericShow
