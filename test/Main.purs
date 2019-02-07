@@ -1,23 +1,24 @@
 module Test.Main where
 
 import Data.Foldable
+import Data.Generic.Rep
+import Data.Generic.Rep.Show
 import Data.Maybe
 import Data.Newtype
 import Data.Traversable
 import Effect
 import Effect.Console
+import Partial.Unsafe
 import Prelude
 import Test.Assert
 import Test.QuickCheck.Arbitrary
-import Test.QuickCheck.Laws.Data
 import Test.QuickCheck.Laws.Control
+import Test.QuickCheck.Laws.Data
 import Type.Proxy
 
 import Data.Array as A
 import Data.ArrayView (ArrayView, fromArray, toArray)
 import Data.ArrayView as AV
-import Data.Generic.Rep.Show
-import Data.Generic.Rep
 
 -- * set to true to get verbose logs
 debug :: Boolean
@@ -45,15 +46,17 @@ derive newtype instance traversableArbitraryAV :: Traversable ArbitraryAV
 
 checkLaws :: Effect Unit
 checkLaws = do
-  checkSemigroup (Proxy :: Proxy (ArbitraryAV Int))
-  checkMonoid (Proxy :: Proxy (ArbitraryAV Int))
-  checkEq (Proxy :: Proxy (ArbitraryAV Int))
-  checkFoldable (Proxy2 :: Proxy2 ArbitraryAV)
-  checkFunctor (Proxy2 :: Proxy2 ArbitraryAV)
-  checkApply (Proxy2 :: Proxy2 ArbitraryAV)
-  checkBind (Proxy2 :: Proxy2 ArbitraryAV)
-  checkMonad (Proxy2 :: Proxy2 ArbitraryAV)
-  checkApplicative (Proxy2 :: Proxy2 ArbitraryAV)
+  let prx1 = Proxy :: Proxy (ArbitraryAV Int)
+      prx2 = (Proxy2 :: Proxy2 ArbitraryAV)
+  checkSemigroup prx1
+  checkMonoid prx1
+  checkEq prx1
+  checkFoldable prx2
+  checkFunctor prx2
+  checkApply prx2
+  checkBind prx2
+  checkMonad prx2
+  checkApplicative prx2
 
 
 main :: Effect Unit
@@ -154,6 +157,16 @@ main = do
             -- index
             assertEqual  { expected: A.index aslice ix
                          , actual: AV.index avslice ix }
+
+            -- unsafeIndex
+            if ix >= 0 && ix < A.length aslice
+              then
+              assertEqual { expected: unsafePartial (A.unsafeIndex aslice ix)
+                          , actual: unsafePartial (AV.unsafeIndex avslice ix) }
+              else
+              assertThrows \_ ->
+              assertEqual { expected: unsafePartial (A.unsafeIndex aslice ix)
+                          , actual: unsafePartial (AV.unsafeIndex avslice ix) }
 
             -- elemIndex
             assertEqual { expected: A.elemIndex ix (aslice <> aslice)

@@ -233,8 +233,8 @@ unsnoc av @ (View { from, len, arr }) = do
 
 index :: forall a. ArrayView a -> Int -> Maybe a
 index av @ (View { from, len, arr }) ix
-  | ix >= len || ix < 0 = Nothing
-  | otherwise = arr A.!! (from + ix)
+  | ix >= 0 && ix < len = arr A.!! (from + ix)
+  | otherwise = Nothing
 
 infixl 8 index as !!
 
@@ -437,7 +437,8 @@ foldRecM :: forall m a b. MonadRec m => (a -> b -> m a) -> a -> ArrayView b -> m
 foldRecM f a = toArray >>> A.foldRecM f a
 
 unsafeIndex :: forall a. Partial => ArrayView a -> Int -> a
-unsafeIndex = toArray >>> A.unsafeIndex
+unsafeIndex (View view @ { from, len, arr }) ix
+  | ix < len && ix >= 0 = A.unsafeIndex arr (ix + from)
 
 fromArray :: Array ~> ArrayView
 fromArray arr = let len = A.length arr in
