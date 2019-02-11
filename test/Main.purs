@@ -1,20 +1,18 @@
 module Test.Main where
 
-import Data.Foldable
-import Data.Generic.Rep
-import Data.Generic.Rep.Show
-import Data.Maybe
-import Data.Newtype
-import Data.Traversable
-import Effect
-import Effect.Console
-import Partial.Unsafe
-import Prelude
-import Test.Assert
-import Test.QuickCheck.Arbitrary
-import Test.QuickCheck.Laws.Control
-import Test.QuickCheck.Laws.Data
-import Type.Proxy
+import Data.Generic.Rep.Show (genericShow)
+import Data.Maybe (Maybe)
+import Data.Newtype (class Newtype)
+import Data.Traversable (class Foldable, class Traversable, for_)
+import Effect (Effect)
+import Effect.Console (log)
+import Partial.Unsafe (unsafePartial)
+import Prelude (class Applicative, class Apply, class Bind, class Eq, class Functor, class Monad, class Monoid, class Semigroup, class Show, Unit, compare, const, discard, map, mod, negate, pure, show, unit, (&&), (+), (<), (<$>), (<>), (==), (>), (>=))
+import Test.Assert (assert, assertEqual, assertThrows)
+import Test.QuickCheck.Arbitrary (class Arbitrary, arbitrary)
+import Test.QuickCheck.Laws.Control (checkApplicative, checkApply, checkBind, checkMonad)
+import Test.QuickCheck.Laws.Data (checkEq, checkFoldable, checkFunctor, checkMonoid, checkSemigroup)
+import Type.Proxy (Proxy(..), Proxy2(..))
 
 import Data.Array as A
 import Data.ArrayView (ArrayView, fromArray, toArray)

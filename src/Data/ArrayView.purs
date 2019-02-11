@@ -204,18 +204,18 @@ insertBy :: forall a. (a -> a -> Ordering) -> a -> ArrayView a -> ArrayView a
 insertBy f a = toArray >>> A.insertBy f a >>> fromArray
 
 head :: forall a. ArrayView a -> Maybe a
-head = join <<< justNonEmpty \(View { from, arr }) -> arr A.!! from
+head = join <<< whenNonEmpty \(View { from, arr }) -> arr A.!! from
 
 last :: forall a. ArrayView a -> Maybe a
-last = join <<< justNonEmpty \(View { from, len, arr }) -> arr A.!! (from + len - 1)
+last = join <<< whenNonEmpty \(View { from, len, arr }) -> arr A.!! (from + len - 1)
 
 -- | *O(1)*
 tail :: forall a. ArrayView a -> Maybe (ArrayView a)
-tail = justNonEmpty unsafeTail
+tail = whenNonEmpty \(View view) -> View view { from = view.from + 1, len = view.len - 1 }
 
 -- | *O(1)*
 init :: forall a. ArrayView a -> Maybe (ArrayView a)
-init = justNonEmpty unsafeInit
+init = whenNonEmpty \(View view) -> View view { len = view.len - 1 }
 
 -- | *O(1)*
 uncons :: forall a. ArrayView a -> Maybe { head :: a, tail :: ArrayView a }
@@ -464,9 +464,9 @@ force = toArray >>> fromArray
 
 -- internal
 
-justNonEmpty :: forall a b. (ArrayView a -> b) -> ArrayView a -> Maybe b
-justNonEmpty _ (View { len: 0 }) = Nothing
-justNonEmpty f av           = Just (f av)
+whenNonEmpty :: forall a b. (ArrayView a -> b) -> ArrayView a -> Maybe b
+whenNonEmpty _ (View { len: 0 }) = Nothing
+whenNonEmpty f av           = Just (f av)
 
 via2 :: forall a b c. (Array a -> Array b -> Array c) -> ArrayView a -> ArrayView b -> ArrayView c
 via2 f x y = fromArray (f (toArray x) (toArray y))
@@ -479,12 +479,6 @@ use f = f >>> via
 
 useAndMap :: forall a b c f. Functor f => (a -> Array c -> f (Array b)) -> a -> ArrayView c -> f (ArrayView b)
 useAndMap f a av = f a (toArray av) <#> fromArray
-
-unsafeInit :: forall a. ArrayView a -> ArrayView a
-unsafeInit (View view) = View view { len = view.len - 1 }
-
-unsafeTail :: forall a. ArrayView a -> ArrayView a
-unsafeTail (View view) = View view { from = view.from + 1, len = view.len - 1 }
 
 empty :: forall a. ArrayView a
 empty = View { from: 0, len: 0, arr: [] }
