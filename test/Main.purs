@@ -1,22 +1,23 @@
 module Test.Main where
 
+import Data.Tuple
+
+import Data.Array as A
+import Data.ArrayView (ArrayView, fromArray, toArray)
+import Data.ArrayView as AV
 import Data.Generic.Rep.Show (genericShow)
-import Data.Maybe (Maybe)
+import Data.Maybe (Maybe(..))
 import Data.Newtype (class Newtype)
 import Data.Traversable (class Foldable, class Traversable, for_)
 import Effect (Effect)
 import Effect.Console (log)
 import Partial.Unsafe (unsafePartial)
-import Prelude (class Applicative, class Apply, class Bind, class Eq, class Functor, class Monad, class Monoid, class Semigroup, class Show, Unit, compare, const, discard, map, mod, negate, pure, show, unit, (&&), (+), (<), (<$>), (<>), (==), (>), (>=))
+import Prelude (class Applicative, class Apply, class Bind, class Eq, class Functor, class Monad, class Monoid, class Semigroup, class Show, Unit, compare, const, discard, map, mod, negate, pure, show, unit, (&&), (+), (<), (<$>), (<<<), (<>), (==), (>), (>=), (>>>))
 import Test.Assert (assert, assertEqual, assertThrows)
 import Test.QuickCheck.Arbitrary (class Arbitrary, arbitrary)
 import Test.QuickCheck.Laws.Control (checkApplicative, checkApply, checkBind, checkMonad)
 import Test.QuickCheck.Laws.Data (checkEq, checkFoldable, checkFunctor, checkMonoid, checkSemigroup)
 import Type.Proxy (Proxy(..), Proxy2(..))
-
-import Data.Array as A
-import Data.ArrayView (ArrayView, fromArray, toArray)
-import Data.ArrayView as AV
 
 -- * set to true to get verbose logs
 debug :: Boolean
@@ -57,8 +58,55 @@ checkLaws = do
   checkApplicative prx2
 
 
+-- Covering edge cases
+checkEdgeCases :: Effect Unit
+checkEdgeCases = do
+
+  let arrs = [ -- check for off-by-one errors
+               Tuple [1,2,3,4] [1,2,3,5]
+             , Tuple [1,2,3,4] [1,2,3,3]
+             , Tuple [1,2,3,5] [1,2,3,4]
+             , Tuple [1,2,3,3] [1,2,3,4]
+
+             , Tuple [1,2,3,4] [0,2,3,4]
+             , Tuple [1,2,3,4] [2,2,3,4]
+             , Tuple [0,2,3,4] [1,2,3,4]
+             , Tuple [2,2,3,4] [1,2,3,4]
+
+             , Tuple [1,2,3,4] [1,2,3,4,5]
+             , Tuple [1,2,3,4] [1,2,3,4,3]
+             , Tuple [1,2,3,4,3] [1,2,3,4]
+             , Tuple [1,2,3,4,5] [1,2,3,4]
+
+               -- check that `compare` traverses the structure
+               -- in correct order (i.e. left-to-right)
+             , Tuple [1,1,1,1,1] [1,0,1,2,1]
+             , Tuple [1,1,1,1,1] [1,2,1,0,1]
+             , Tuple [1,1,1,1,1] [1,0,1,2,1,1]
+             , Tuple [1,1,1,1,1] [1,2,1,0,1,1]
+
+             , Tuple [] []
+             , Tuple [] [1]
+             , Tuple [] [1,2,3]
+             , Tuple [1] []
+             , Tuple [1,2,3] []
+             ]
+  for_ arrs \(Tuple xs ys) -> do
+    logDebug ("xs: " <> show xs <> ", " <>
+              "ys: " <> show ys)
+
+    -- in Eq instance definition
+    assertEqual { expected: xs == ys
+                , actual: fromArray xs == fromArray ys }
+
+    -- in Ord instance defintion
+    assertEqual { expected: xs `compare` ys
+                , actual: fromArray xs `compare` fromArray ys }
+
+
 main :: Effect Unit
 main = do
+  checkEdgeCases
   checkLaws
 
   -- Good old assertion testing.
@@ -213,12 +261,13 @@ main = do
               (AV.slice i ix avslice)
               (A.slice  i ix aslice)
 
-            -- partition
-            -- filterA
-            -- mapMaybe
-            -- catMaybes
             -- mapWithIndex
+
             -- sort
+            assertEquals
+              (AV.sort avslice)
+              (A.sort aslice)
+
             -- sortBy
             -- sortWith
 
@@ -238,6 +287,28 @@ main = do
             assertEquals
               (AV.filter f avslice)
               (A.filter f aslice)
+
+            -- filterA
+            assertEqual { expected: A.filterA (f >>> A.singleton) aslice
+                        , actual: map toArray (AV.filterA (f >>> A.singleton) avslice) }
+
+            -- partition
+            assertEqual { expected: fixYesNo (A.partition f aslice)
+                        , actual: AV.partition f avslice }
+
+            -- mapMaybe
+            let g n = if f n then Just n else Nothing
+            assertEquals
+              (AV.mapMaybe g avslice)
+              (A.mapMaybe g aslice)
+
+            -- catMaybes
+            assertEquals
+              (AV.catMaybes (map g avslice))
+              (A.catMaybes (map g aslice))
+
+fixYesNo :: forall a. { no :: Array a, yes :: Array a } -> { yes :: ArrayView a, no :: ArrayView a }
+fixYesNo { yes, no } = { yes: fromArray yes, no: fromArray no }
 
 fixTail :: forall a. { tail :: ArrayView a, head :: a } -> { head :: a, tail :: Array a }
 fixTail { head, tail } = { head, tail: toArray tail }

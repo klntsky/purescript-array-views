@@ -96,6 +96,7 @@ import Data.Newtype (class Newtype)
 import Data.NonEmpty (NonEmpty, (:|))
 import Data.NonEmpty as NE
 import Data.Ord (class Ord1)
+import Data.Ordering (Ordering(..))
 import Data.Profunctor.Strong ((***))
 import Data.Traversable (class Foldable, class Traversable, foldMap, foldl, foldr, sequenceDefault, traverse)
 import Data.Tuple (Tuple)
@@ -114,23 +115,32 @@ instance showArrayView :: Show a => Show (ArrayView a) where
   show av  = "fromArray " <> show (toArray av)
 
 instance eqArrayView :: Eq a => Eq (ArrayView a) where
-  eq a b = lenA == length b && go (lenA - 1)
+  eq xs ys = lenXs == length ys && go (lenXs)
     where
-      lenA = length a
+      lenXs = length xs
       go (-1) = true
-      go ix = if a !! ix == b !! ix then
-               go (ix - 1)
-             else
-               false
+      go i    = if xs !! i == ys !! i then
+                  go (i - 1)
+                else
+                  false
 
 instance eq1ArrayView :: Eq1 ArrayView where
-  eq1 a b = a `eq` b
+  eq1 xs ys = xs `eq` ys
 
 instance ordArrayView :: Ord a => Ord (ArrayView a) where
-  compare a b = toArray a `compare` toArray b
+  compare xs ys = go 0
+    where
+      compareLengths = compare (length xs) (length ys)
+      go i =
+        case xs !! i, ys !! i of
+          Just x, Just y -> let cmprsn = compare x y in
+            if cmprsn == EQ then
+              go (i + 1)
+            else cmprsn
+          _, _ -> compareLengths
 
 instance ord1ArrayView :: Ord1 ArrayView where
-  compare1 a b = a `compare` b
+  compare1 xs ys = xs `compare` ys
 
 instance functorArrayView :: Functor ArrayView where
   map f = toArray >>> map f >>> fromArray
