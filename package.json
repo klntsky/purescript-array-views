@@ -7,7 +7,7 @@
   },
   "devDependencies": {
     "benchmark": "^2.1.4",
-    "microtime": "^2.1.9"
+    "microtime": "^3.0.0"
   },
   "scripts": {
     "test": "pulp test",
