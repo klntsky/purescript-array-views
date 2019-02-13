@@ -77,6 +77,9 @@ module Data.ArrayView
        , foldM
        , foldRecM
        , unsafeIndex
+
+       , class ArrayToView
+       , use
        )
 where
 
@@ -85,19 +88,21 @@ import Control.Alternative (class Alternative)
 import Control.Lazy (class Lazy)
 import Control.Monad.Rec.Class (class MonadRec)
 import Data.Array as A
-import Data.Array.NonEmpty as NE
+import Data.Array.NonEmpty as NEA
+import Data.Eq (class Eq1)
 import Data.Generic.Rep (class Generic)
 import Data.Maybe (Maybe(..))
+import Data.Newtype (class Newtype)
 import Data.NonEmpty (NonEmpty, (:|))
+import Data.NonEmpty as NE
+import Data.Ord (class Ord1)
 import Data.Profunctor.Strong ((***))
 import Data.Traversable (class Foldable, class Traversable, foldMap, foldl, foldr, sequenceDefault, traverse)
 import Data.Tuple (Tuple)
 import Data.Unfoldable (class Unfoldable, unfoldr)
 import Data.Unfoldable1 (class Unfoldable1, unfoldr1)
-import Data.Eq (class Eq1, eq1)
-import Data.Ord (class Ord1, compare1)
-import Prelude (class Applicative, class Apply, class Bind, class Eq, class Functor, class Monad, class Monoid, class Ord, class Semigroup, class Show, type (~>), Ordering, apply, bind, compare, join, map, otherwise, pure, show, (&&), (+), (-), (<), (<#>), (<<<), (<=), (<>), (==), (>), (>=), (>>>), (||))
-import Data.Newtype (class Newtype)
+import Prelude (class Applicative, class Apply, class Bind, class Eq, class Functor, class Monad, class Monoid, class Ord, class Semigroup, class Show, type (~>), Ordering, apply, bind, compare, eq, join, map, otherwise, pure, show, (&&), (+), (-), (<), (<#>), (<<<), (<=), (<>), (==), (>), (>=), (>>>), (||))
+
 
 newtype ArrayView a = View { from :: Int, len :: Int, arr :: Array a }
 
@@ -109,16 +114,23 @@ instance showArrayView :: Show a => Show (ArrayView a) where
   show av  = "fromArray " <> show (toArray av)
 
 instance eqArrayView :: Eq a => Eq (ArrayView a) where
-  eq a b = toArray a == toArray b
+  eq a b = lenA == length b && go (lenA - 1)
+    where
+      lenA = length a
+      go (-1) = true
+      go ix = if a !! ix == b !! ix then
+               go (ix - 1)
+             else
+               false
 
 instance eq1ArrayView :: Eq1 ArrayView where
-  eq1 a b = toArray a `eq1` toArray b
+  eq1 a b = a `eq` b
 
 instance ordArrayView :: Ord a => Ord (ArrayView a) where
   compare a b = toArray a `compare` toArray b
 
 instance ord1ArrayView :: Ord1 ArrayView where
-  compare1 a b = toArray a `compare1` toArray b
+  compare1 a b = a `compare` b
 
 instance functorArrayView :: Functor ArrayView where
   map f = toArray >>> map f >>> fromArray
@@ -239,75 +251,76 @@ index av @ (View { from, len, arr }) ix
 infixl 8 index as !!
 
 elemIndex :: forall a. Eq a => a -> ArrayView a -> Maybe Int
-elemIndex e = toArray >>> A.elemIndex e
+elemIndex e = use (A.elemIndex e)
 
 elemLastIndex :: forall a. Eq a => a -> ArrayView a -> Maybe Int
-elemLastIndex e = toArray >>> A.elemLastIndex e
+elemLastIndex e = use (A.elemLastIndex e)
 
 findIndex :: forall a. (a -> Boolean) -> ArrayView a -> Maybe Int
-findIndex p = toArray >>> A.findIndex p
+findIndex p = use (A.findIndex p)
 
 findLastIndex :: forall a. (a -> Boolean) -> ArrayView a -> Maybe Int
-findLastIndex p = toArray >>> A.findLastIndex p
+findLastIndex p = use (A.findLastIndex p)
 
 insertAt :: forall a. Int -> a -> ArrayView a -> Maybe (ArrayView a)
-insertAt ix e = toArray >>> A.insertAt ix e >>> map fromArray
+insertAt ix e = use (A.insertAt ix e)
 
 deleteAt :: forall a. Int -> ArrayView a -> Maybe (ArrayView a)
-deleteAt = useAndMap A.deleteAt
+deleteAt = use (A.deleteAt :: Int -> Array a -> Maybe (Array a))
 
 updateAt :: forall a. Int -> a -> ArrayView a -> Maybe (ArrayView a)
-updateAt = useAndMap <<< A.updateAt
+updateAt ix v = use (A.updateAt ix v)
 
 updateAtIndices :: forall t a. Foldable t => t (Tuple Int a) -> ArrayView a -> ArrayView a
-updateAtIndices = use A.updateAtIndices
+updateAtIndices t = use (A.updateAtIndices t)
 
 modifyAt :: forall a. Int -> (a -> a) -> ArrayView a -> Maybe (ArrayView a)
-modifyAt = useAndMap <<< A.modifyAt
+modifyAt ix f = use (A.modifyAt ix f)
 
 modifyAtIndices :: forall t a. Foldable t => t Int -> (a -> a) -> ArrayView a -> ArrayView a
-modifyAtIndices = use <<< A.modifyAtIndices
+modifyAtIndices t f = use (A.modifyAtIndices t f)
 
 alterAt :: forall a. Int -> (a -> Maybe a) -> ArrayView a -> Maybe (ArrayView a)
-alterAt = useAndMap <<< A.alterAt
+alterAt = use (A.alterAt :: Int -> (a -> Maybe a) -> Array a -> Maybe (Array a))
 
 reverse :: forall a. ArrayView a -> ArrayView a
-reverse = via A.reverse
+reverse = use (A.reverse :: Array a -> Array a)
 
 concat :: forall a. ArrayView (ArrayView a) -> ArrayView a
-concat = toArray >>> map toArray >>> A.concat >>> fromArray
+concat = use (A.concat :: Array (Array a) -> Array a)
 
 concatMap :: forall a b. (a -> ArrayView b) -> ArrayView a -> ArrayView b
-concatMap f = concat <<< map f
+concatMap = use (A.concatMap :: (a -> Array b) -> Array a -> Array b)
 
 filter :: forall a. (a -> Boolean) -> ArrayView a -> ArrayView a
-filter = use A.filter
+filter f = use (A.filter f)
 
 partition :: forall a. (a -> Boolean) -> ArrayView a -> { yes :: ArrayView a, no :: ArrayView a }
-partition p = toArray >>> A.partition p >>> go
+partition p = use (A.partition p) >>> fix
   where
-    go { yes, no } = { yes: fromArray yes, no: fromArray no }
+    fix :: { no :: Array a, yes :: Array a } -> { yes :: ArrayView a, no :: ArrayView a }
+    fix { yes, no } = { yes: fromArray yes, no: fromArray no }
 
 filterA :: forall a f. Applicative f => (a -> f Boolean) -> ArrayView a -> f (ArrayView a)
-filterA = useAndMap A.filterA
+filterA f = use (A.filterA f)
 
 mapMaybe :: forall a b. (a -> Maybe b) -> ArrayView a -> ArrayView b
-mapMaybe = use A.mapMaybe
+mapMaybe f = use (A.mapMaybe f)
 
 catMaybes :: forall a. ArrayView (Maybe a) -> ArrayView a
-catMaybes = via A.catMaybes
+catMaybes = use (A.catMaybes :: Array (Maybe a) -> Array a)
 
 mapWithIndex :: forall a b. (Int -> a -> b) -> ArrayView a -> ArrayView b
-mapWithIndex = use A.mapWithIndex
+mapWithIndex f = use (A.mapWithIndex f)
 
 sort :: forall a. Ord a => ArrayView a -> ArrayView a
-sort = via A.sort
+sort = use (A.sort :: Array a -> Array a)
 
 sortBy :: forall a. (a -> a -> Ordering) -> ArrayView a -> ArrayView a
-sortBy = use A.sortBy
+sortBy f = use (A.sortBy f)
 
 sortWith :: forall a b. Ord b => (a -> b) -> ArrayView a -> ArrayView a
-sortWith = use A.sortWith
+sortWith f = use (A.sortWith f)
 
 -- | *O(1)*
 slice :: forall a. Int -> Int -> ArrayView a -> ArrayView a
@@ -378,54 +391,50 @@ group av = fromArray (A.group (toArray av) <#> fromNonEmpty)
 group' :: forall a. Ord a => ArrayView a -> ArrayView (NonEmpty ArrayView a)
 group' av = fromArray (A.group' (toArray av) <#> fromNonEmpty)
 
-fromNonEmpty :: NE.NonEmptyArray ~> NonEmpty ArrayView
-fromNonEmpty nav = let t = NE.uncons nav in
-  t.head :| fromArray (t.tail)
-
 groupBy :: forall a. (a -> a -> Boolean) -> ArrayView a -> ArrayView (NonEmpty ArrayView a)
-groupBy f = map fromNonEmpty <<< via (A.groupBy f)
+groupBy f = use (A.groupBy f)
 
 nub :: forall a. Ord a => ArrayView a -> ArrayView a
-nub = via A.nub
+nub = use (A.nub :: Array a -> Array a)
 
 nubEq :: forall a. Eq a => ArrayView a -> ArrayView a
-nubEq = via A.nubEq
+nubEq = use (A.nubEq :: Array a -> Array a)
 
 nubBy :: forall a. (a -> a -> Ordering) -> ArrayView a -> ArrayView a
-nubBy = use A.nubBy
+nubBy f = use (A.nubBy f)
 
 nubByEq :: forall a. (a -> a -> Boolean) -> ArrayView a -> ArrayView a
-nubByEq = use A.nubByEq
+nubByEq p = use (A.nubByEq p)
 
 union :: forall a. Eq a => ArrayView a -> ArrayView a -> ArrayView a
-union = via2 A.union
+union = use (A.union :: Array a -> Array a -> Array a)
 
 unionBy :: forall a. (a -> a -> Boolean) -> ArrayView a -> ArrayView a -> ArrayView a
-unionBy = via2 <<< A.unionBy
+unionBy p = use (A.unionBy p)
 
 delete :: forall a. Eq a => a -> ArrayView a -> ArrayView a
-delete = use A.delete
+delete a = use (A.delete a)
 
 deleteBy :: forall a. (a -> a -> Boolean) -> a -> ArrayView a -> ArrayView a
 deleteBy f = use (A.deleteBy f)
 
 difference :: forall a. Eq a => ArrayView a -> ArrayView a -> ArrayView a
-difference = via2 A.difference
+difference = use (A.difference :: Array a -> Array a -> Array a)
 
 intersect :: forall a. Eq a => ArrayView a -> ArrayView a -> ArrayView a
-intersect = via2 A.intersect
+intersect = use (A.intersect :: Array a -> Array a -> Array a)
 
 intersectBy :: forall a. (a -> a -> Boolean) -> ArrayView a -> ArrayView a -> ArrayView a
-intersectBy f = via2 (A.intersectBy f)
+intersectBy f = use (A.intersectBy f)
 
 zipWith :: forall a b c. (a -> b -> c) -> ArrayView a -> ArrayView b -> ArrayView c
-zipWith f = via2 (A.zipWith f)
+zipWith f = use (A.zipWith f)
 
 zipWithA :: forall m a b c. Applicative m => (a -> b -> m c) -> ArrayView a -> ArrayView b -> m (ArrayView c)
 zipWithA f a b = A.zipWithA f (toArray a) (toArray b) <#> fromArray
 
 zip :: forall a b. ArrayView a -> ArrayView b -> ArrayView (Tuple a b)
-zip = via2 A.zip
+zip = use (A.zip :: Array a -> Array b -> Array (Tuple a b))
 
 unzip :: forall a b. ArrayView (Tuple a b) -> Tuple (ArrayView a) (ArrayView b)
 unzip = (fromArray *** fromArray) <<< A.unzip <<< toArray
@@ -464,21 +473,63 @@ force = toArray >>> fromArray
 
 -- internal
 
+fromNonEmpty :: NEA.NonEmptyArray ~> NonEmpty ArrayView
+fromNonEmpty nav = let t = NEA.uncons nav in
+  t.head :| fromArray (t.tail)
+
+toNonEmpty :: NonEmpty ArrayView ~> NEA.NonEmptyArray
+toNonEmpty narr = NEA.cons' (NE.head narr) (toArray (NE.tail narr))
+
 whenNonEmpty :: forall a b. (ArrayView a -> b) -> ArrayView a -> Maybe b
 whenNonEmpty _ (View { len: 0 }) = Nothing
 whenNonEmpty f av           = Just (f av)
 
-via2 :: forall a b c. (Array a -> Array b -> Array c) -> ArrayView a -> ArrayView b -> ArrayView c
-via2 f x y = fromArray (f (toArray x) (toArray y))
-
-via :: forall a b. (Array a -> Array b) -> ArrayView a -> ArrayView b
-via f = toArray >>> f >>> fromArray
-
-use :: forall a b c. (a -> Array c -> Array b) -> a -> ArrayView c -> ArrayView b
-use f = f >>> via
-
-useAndMap :: forall a b c f. Functor f => (a -> Array c -> f (Array b)) -> a -> ArrayView c -> f (ArrayView b)
-useAndMap f a av = f a (toArray av) <#> fromArray
-
 empty :: forall a. ArrayView a
 empty = View { from: 0, len: 0, arr: [] }
+
+
+-- | This typeclass allows to convert any function that operates on `Array` to a
+-- | function that operates on `ArrayView`.
+-- |
+-- | *Note*: either type annotation or partial application of some number of
+-- | arguments is needed, because otherwise the type inference will not be
+-- | able to guess the correct type.
+-- |
+-- | ```
+-- | import Data.Array as A
+-- |
+-- | -- OK
+-- | zipWith :: forall a b c. (a -> b -> c) -> ArrayView a -> ArrayView b -> ArrayView c
+-- | zipWith = use (A.zipWith :: (a -> b -> c) -> Array a -> Array b -> Array c)
+-- |
+-- | -- OK
+-- | zipWith :: forall a b c. (a -> b -> c) -> ArrayView a -> ArrayView b -> ArrayView c
+-- | zipWith f = use (A.zipWith f) -- all three type parameters are tied to `f`
+-- |
+-- | -- Type error
+-- | zipWith :: forall a b c. (a -> b -> c) -> ArrayView a -> ArrayView b -> ArrayView c
+-- | zipWith = use A.zipWith
+-- | ```
+class ArrayToView a b where
+  use :: a -> b
+
+instance useArrayViewId :: ArrayToView a a where
+  use x = x
+
+else instance useArrayViewBi :: (ArrayToView b a, ArrayToView c d) => ArrayToView (a -> c) (b -> d) where
+  use f x = use (f (use x))
+
+else instance useArrayViewFrom :: ArrayToView a b => ArrayToView (Array a) (ArrayView b) where
+  use = fromArray <<< map use
+
+else instance useArrayViewTo :: ArrayToView a b => ArrayToView (ArrayView a) (Array b) where
+  use = toArray <<< map use
+
+else instance useArrayViewFromNEA :: ArrayToView (NEA.NonEmptyArray a) (NonEmpty ArrayView a) where
+  use = fromNonEmpty
+
+else instance useArrayViewToNEA :: ArrayToView (NE.NonEmpty ArrayView a) (NEA.NonEmptyArray a) where
+  use = toNonEmpty
+
+else instance useArrayViewFunctor :: (Functor f, ArrayToView a b) => ArrayToView (f a) (f b) where
+  use = map use
