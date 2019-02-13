@@ -1,7 +1,5 @@
 module Test.Main where
 
-import Data.Tuple
-
 import Data.Array as A
 import Data.ArrayView (ArrayView, fromArray, toArray)
 import Data.ArrayView as AV
@@ -9,10 +7,11 @@ import Data.Generic.Rep.Show (genericShow)
 import Data.Maybe (Maybe(..))
 import Data.Newtype (class Newtype)
 import Data.Traversable (class Foldable, class Traversable, for_)
+import Data.Tuple
 import Effect (Effect)
 import Effect.Console (log)
 import Partial.Unsafe (unsafePartial)
-import Prelude (class Applicative, class Apply, class Bind, class Eq, class Functor, class Monad, class Monoid, class Semigroup, class Show, Unit, compare, const, discard, map, mod, negate, pure, show, unit, (&&), (+), (<), (<$>), (<<<), (<>), (==), (>), (>=), (>>>))
+import Prelude (class Applicative, class Apply, class Bind, class Eq, class Functor, class Monad, class Monoid, class Semigroup, class Show, Unit, compare, const, discard, flip, map, mod, negate, pure, show, unit, ($), (&&), (+), (<), (<$>), (<>), (==), (>), (>=), (>>>))
 import Test.Assert (assert, assertEqual, assertThrows)
 import Test.QuickCheck.Arbitrary (class Arbitrary, arbitrary)
 import Test.QuickCheck.Laws.Control (checkApplicative, checkApply, checkBind, checkMonad)
@@ -46,7 +45,7 @@ derive newtype instance traversableArbitraryAV :: Traversable ArbitraryAV
 checkLaws :: Effect Unit
 checkLaws = do
   let prx1 = Proxy :: Proxy (ArbitraryAV Int)
-      prx2 = (Proxy2 :: Proxy2 ArbitraryAV)
+      prx2 = Proxy2 :: Proxy2 ArbitraryAV
   checkSemigroup prx1
   checkMonoid prx1
   checkEq prx1
@@ -91,6 +90,7 @@ checkEdgeCases = do
              , Tuple [1] []
              , Tuple [1,2,3] []
              ]
+
   for_ arrs \(Tuple xs ys) -> do
     logDebug ("xs: " <> show xs <> ", " <>
               "ys: " <> show ys)
@@ -104,14 +104,24 @@ checkEdgeCases = do
                 , actual: fromArray xs `compare` fromArray ys }
 
 
+checkArrayToView :: Effect Unit
+checkArrayToView = do
+  let arr = [1,2,3]
+  -- check that view converts between Array and ArrayView
+  assertEqual { expected: (AV.use (AV.use :: Array Int -> ArrayView Int) :: ArrayView Int -> Array Int) (fromArray arr)
+              , actual: arr }
+  assertEqual { expected: (AV.use (AV.use :: ArrayView Int -> Array Int) :: Array Int -> ArrayView Int) arr
+              , actual: fromArray arr }
+
 main :: Effect Unit
 main = do
   checkEdgeCases
   checkLaws
+  checkArrayToView
 
   -- Good old assertion testing.
   -- In our case we need to check some properties after slicing, to ensure that
-  -- indices are correct. So relying solely on `quickeck-laws` is not enough.
+  -- indices are correct.
 
   -- For all possible lengths...
   for_ (0 A... 12) \len -> do
@@ -157,6 +167,10 @@ main = do
 
           assertEqual { expected: avslice
                       , actual: fromArray aslice }
+
+          assertEquals
+            (AV.force avslice)
+            aslice
 
           -- null
           assertEqual { expected: A.null aslice
@@ -251,10 +265,28 @@ main = do
               (A.modifyAt ix (_ + 1) aslice)
 
             -- modifyAtIndices
+            assertEquals
+              (AV.modifyAtIndices avslice (_ + 1) avslice)
+              (A.modifyAtIndices aslice (_ + 1) aslice)
+
             -- alterAt
+            assertEqualsMaybe
+              (AV.alterAt ix pure avslice)
+              (A.alterAt ix pure aslice)
+
             -- reverse
+            assertEquals
+              (AV.reverse avslice)
+              (A.reverse aslice)
+
             -- concat
+            assertEqual { expected: fromArray $ A.concat $ map (const aslice) aslice
+                        , actual: AV.concat $ map (const avslice) avslice }
+
             -- concatMap
+            assertEquals
+              (AV.concatMap pure avslice)
+              (A.concatMap pure aslice)
 
             -- slice
             assertEquals
@@ -262,6 +294,9 @@ main = do
               (A.slice  i ix aslice)
 
             -- mapWithIndex
+            assertEquals
+              (AV.mapWithIndex (\n el -> Tuple n el) avslice)
+              (A.mapWithIndex (\n el -> Tuple n el) aslice)
 
             -- sort
             assertEquals
@@ -269,7 +304,14 @@ main = do
               (A.sort aslice)
 
             -- sortBy
+            assertEquals
+              (AV.sortBy (flip compare) avslice)
+              (A.sortBy (flip compare) aslice)
+
             -- sortWith
+            assertEquals
+              (AV.sortWith negate avslice)
+              (A.sortWith negate aslice)
 
           -- test functions that require a predicate
           for_ [ (_ > 5)
