@@ -1,5 +1,8 @@
 # purescript-array-views
 
+![](https://img.shields.io/librariesio/github/8084/purescript-array-views.svg)
+[![Build status](https://travis-ci.org/8084/purescript-array-views.svg?branch=master)](https://travis-ci.org/8084/purescript-array-views)
+
 The time complexity of `uncons` called on `Array` is *O(n)* because [`.slice()` is used](https://github.com/purescript/purescript-arrays/blob/d218f6f6fa1a41ce3bd6daeef72f9b197c1eb8d2/src/Data/Array.js#L109)  to preserve purity. Thus iterating over `Array` using `uncons` is *O(n<sup>2</sup>)*.
 
 But since purescript `Array`s are persistent at runtime, it is possible to defer multiple `.slice()` calls by introducing another data structure and operating on it instead.
@@ -13,7 +16,7 @@ newtype ArrayView a = View { from :: Int, len :: Int, arr :: Array a }
 
 So, instead of slicing, it is possible to just shift the indices.
 
-Obviously, this technique does not improve the asymptotics of `cons`/`snoc`/`append` and other array constructing functions, so if the code uses these, there will be no benefit in replacing `Array` with `ArrayView`. 
+Obviously, this technique does not improve the asymptotics of `cons`/`snoc`/`append` and other array constructing functions, so if the code uses these, there will be no benefit in replacing `Array` with `ArrayView`.
 
 It should be noted once more that iterating over ordinary arrays using `cons` and `uncons`, which is common in Haskell (with lists) is a bad practice. Often such code can be refactored to use some type of fold and/or other standard functionals. However, there are cases where it is not straightforward, or where using `uncons`/`unsnoc` is more syntactically appealing, e.g. when iterating over many structures at once.
 
