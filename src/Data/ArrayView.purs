@@ -101,7 +101,7 @@ import Data.Traversable (class Foldable, class Traversable, foldMap, foldl, fold
 import Data.Tuple (Tuple)
 import Data.Unfoldable (class Unfoldable, unfoldr)
 import Data.Unfoldable1 (class Unfoldable1, unfoldr1)
-import Prelude (class Applicative, class Apply, class Bind, class Eq, class Functor, class Monad, class Monoid, class Ord, class Semigroup, class Show, type (~>), Ordering, apply, bind, compare, eq, join, map, otherwise, pure, show, (&&), (+), (-), (<), (<#>), (<<<), (<=), (<>), (==), (>), (>=), (>>>), (||))
+import Prelude (class Applicative, class Apply, class Bind, class Eq, class Functor, class Monad, class Monoid, class Ord, class Semigroup, class Show, type (~>), Ordering, append, apply, bind, compare, eq, map, otherwise, pure, show, (&&), (+), (-), (<), (<<<), (<=), (<>), (==), (>), (>=), (>>>), (||))
 
 
 newtype ArrayView a = View { from :: Int, len :: Int, arr :: Array a }
@@ -162,7 +162,7 @@ instance unfoldableArrayView :: Unfoldable ArrayView where
   unfoldr f z = fromArray (unfoldr f z)
 
 instance semigroupArrayView :: Semigroup (ArrayView a) where
-  append a b = fromArray (toArray a <> toArray b)
+  append = use (append :: Array a -> Array a -> Array a)
 
 instance monoidArrayView :: Monoid (ArrayView a) where
   mempty = empty
@@ -177,20 +177,20 @@ singleton :: forall a. a -> ArrayView a
 singleton a = View { from: 0, len: 1, arr: [a] }
 
 range :: Int -> Int -> ArrayView Int
-range f = A.range f >>> fromArray
+range = use A.range
 
 infix 8 range as ..
 
 replicate :: forall a. Int -> a -> ArrayView a
-replicate i = A.replicate i >>> fromArray
+replicate = use (A.replicate :: Int -> a -> Array a)
 
 -- Using `Lazy (f (ArrayView a))` constraint is impossible due to `OrphanInstances`.
 some :: forall f a. Alternative f => Lazy (f (Array a)) => f a -> f (ArrayView a)
-some = A.some >>> map fromArray
+some = use (A.some :: Lazy (f (Array a)) => f a -> f (Array a))
 
 -- Using `Lazy (f (ArrayView a))` constraint is impossible due to `OrphanInstances`.
 many :: forall f a. Alternative f => Lazy (f (Array a)) => f a -> f (ArrayView a)
-many = A.many >>> map fromArray
+many = use (A.many :: Lazy (f (Array a)) => f a -> f (Array a))
 
 null :: forall a. ArrayView a -> Boolean
 null (View { len: 0 }) = true
@@ -201,25 +201,25 @@ length (View { len }) = len
 
 -- | *O(n)*
 cons :: forall a. a -> ArrayView a -> ArrayView a
-cons a av = fromArray (A.cons a (toArray av))
+cons a = use (A.cons a)
 
 infix 6 cons as :
 
 -- | *O(n)*
 snoc :: forall a. ArrayView a -> a -> ArrayView a
-snoc av a = fromArray (A.snoc (toArray av) a)
+snoc = use (A.snoc :: Array a -> a -> Array a)
 
 insert :: forall a. Ord a => a -> ArrayView a -> ArrayView a
-insert a = toArray >>> A.insert a >>> fromArray
+insert a = use (A.insert a)
 
 insertBy :: forall a. (a -> a -> Ordering) -> a -> ArrayView a -> ArrayView a
-insertBy f a = toArray >>> A.insertBy f a >>> fromArray
+insertBy f = use (A.insertBy f)
 
 head :: forall a. ArrayView a -> Maybe a
-head = join <<< whenNonEmpty \(View { from, arr }) -> arr A.!! from
+head av = av !! 0
 
 last :: forall a. ArrayView a -> Maybe a
-last = join <<< whenNonEmpty \(View { from, len, arr }) -> arr A.!! (from + len - 1)
+last av = av !! (length av - 1)
 
 -- | *O(1)*
 tail :: forall a. ArrayView a -> Maybe (ArrayView a)
@@ -386,10 +386,10 @@ span p av =
         Nothing -> Nothing
 
 group :: forall a. Eq a => ArrayView a -> ArrayView (NonEmpty ArrayView a)
-group av = fromArray (A.group (toArray av) <#> fromNonEmpty)
+group = use (A.group :: Array a -> Array (NEA.NonEmptyArray a))
 
 group' :: forall a. Ord a => ArrayView a -> ArrayView (NonEmpty ArrayView a)
-group' av = fromArray (A.group' (toArray av) <#> fromNonEmpty)
+group' = use (A.group' :: Array a -> Array (NEA.NonEmptyArray a))
 
 groupBy :: forall a. (a -> a -> Boolean) -> ArrayView a -> ArrayView (NonEmpty ArrayView a)
 groupBy f = use (A.groupBy f)
@@ -431,7 +431,7 @@ zipWith :: forall a b c. (a -> b -> c) -> ArrayView a -> ArrayView b -> ArrayVie
 zipWith f = use (A.zipWith f)
 
 zipWithA :: forall m a b c. Applicative m => (a -> b -> m c) -> ArrayView a -> ArrayView b -> m (ArrayView c)
-zipWithA f a b = A.zipWithA f (toArray a) (toArray b) <#> fromArray
+zipWithA f = use (A.zipWithA f)
 
 zip :: forall a b. ArrayView a -> ArrayView b -> ArrayView (Tuple a b)
 zip = use (A.zip :: Array a -> Array b -> Array (Tuple a b))
@@ -440,10 +440,10 @@ unzip :: forall a b. ArrayView (Tuple a b) -> Tuple (ArrayView a) (ArrayView b)
 unzip = (fromArray *** fromArray) <<< A.unzip <<< toArray
 
 foldM :: forall m a b. Monad m => (a -> b -> m a) -> a -> ArrayView b -> m a
-foldM f a = toArray >>> A.foldM f a
+foldM f = use (A.foldM f)
 
 foldRecM :: forall m a b. MonadRec m => (a -> b -> m a) -> a -> ArrayView b -> m a
-foldRecM f a = toArray >>> A.foldRecM f a
+foldRecM f = use (A.foldRecM f)
 
 unsafeIndex :: forall a. Partial => ArrayView a -> Int -> a
 unsafeIndex (View view @ { from, len, arr }) ix
