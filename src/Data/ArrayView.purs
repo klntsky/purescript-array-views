@@ -489,7 +489,9 @@ empty = View { from: 0, len: 0, arr: [] }
 
 
 -- | This typeclass allows to convert any function that operates on `Array` to a
--- | function that operates on `ArrayView`.
+-- | function that operates on `ArrayView` and vice versa. `use` only inserts
+-- | `fromArray` and `toArray` in the right places, so don't expect it to
+-- | increase performance.
 -- |
 -- | *Note*: either type annotation or partial application of some number of
 -- | arguments is needed, because otherwise the type inference will not be

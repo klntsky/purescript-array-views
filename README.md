@@ -7,7 +7,7 @@ But since purescript `Array`s are persistent at runtime, it is possible to defer
 `ArrayView` contains a pointer to some `Array` coupled with two numbers: index where the view starts relative to the beginning of the array and the length of the view.
 
 ```purescript
-data ArrayView a = View Int Int (Array a)
+newtype ArrayView a = View { from :: Int, len :: Int, arr :: Array a }
 ```
 
 
@@ -27,6 +27,12 @@ For every function in `Data.Array` there is a corresponding function in `Data.Ar
 |`span` (used by `takeWhile`, `dropWhile`) | *O(n+m)* | *O(n)* | *n* is the length of the `init` array, *m* is the length of the `rest` |
 | `ArrayView.toArray` |  | *O(n)* | *O(1)* if the given view corresponds to the whole array |
 | `ArrayView.fromArray` | *O(1)* | |
+
+## Impact on GC
+
+Since every `ArrayView` holds a reference to some array, the latter can't be garbage-collected while the former is used. This leads to a memory consumption overhead.
+
+If you need to free unused parts of array, use `Data.ArrayView.force :: forall a. ArrayView a -> ArrayView a` (which performs slicing and therefore is *O(n)*).
 
 ## Benchmarks
 
