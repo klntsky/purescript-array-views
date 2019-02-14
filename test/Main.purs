@@ -1,17 +1,21 @@
 module Test.Main where
 
 import Data.Array as A
+import Data.Array.NonEmpty as NEA
 import Data.ArrayView (ArrayView, fromArray, toArray)
 import Data.ArrayView as AV
 import Data.Generic.Rep.Show (genericShow)
 import Data.Maybe (Maybe(..))
+import Data.NaturalTransformation (type (~>))
 import Data.Newtype (class Newtype)
+import Data.NonEmpty as NE
+import Data.Profunctor.Strong ((***))
 import Data.Traversable (class Foldable, class Traversable, for_)
 import Data.Tuple (Tuple(..))
 import Effect (Effect)
 import Effect.Console (log)
 import Partial.Unsafe (unsafePartial)
-import Prelude (class Applicative, class Apply, class Bind, class Eq, class Functor, class Monad, class Monoid, class Semigroup, class Show, Unit, compare, const, discard, flip, map, mod, negate, pure, show, unit, ($), (&&), (+), (<), (<$>), (<>), (==), (>), (>=), (>>>))
+import Prelude (class Applicative, class Apply, class Bind, class Eq, class Functor, class Monad, class Monoid, class Semigroup, class Show, class Ord, Unit, compare, const, discard, flip, eq, map, mod, negate, not, pure, show, unit, ($), (&&), (+), (<), (<$>), (<>), (==), (>), (>=), (>>>))
 import Test.Assert (assert, assertEqual, assertThrows)
 import Test.QuickCheck.Arbitrary (class Arbitrary, arbitrary)
 import Test.QuickCheck.Laws.Control (checkApplicative, checkApply, checkBind, checkMonad)
@@ -145,37 +149,45 @@ checkAssertions = do
     -- for all possible indices i & j...
     for_ (-10 A... 10) \i -> do
       for_ (-10 A...10) \j -> do
-          -- ...check that slices from i to j are equal
-          let aslice = A.slice i j a
-              avslice = AV.slice i j av
+        -- ...check that slices from i to j are equal
+        let aslice = A.slice i j a
+            avslice = AV.slice i j av
 
-          logDebug (" len: " <> show len <>
-                    " i: "   <> show i <>
-                    " j: "   <> show j <>
-                    " aslice: " <> show aslice <>
-                    " avslice: " <> inspect avslice)
+        logDebug (" len: " <> show len <>
+                  " i: "   <> show i <>
+                  " j: "   <> show j <>
+                  " aslice: " <> show aslice <>
+                  " avslice: " <> inspect avslice)
 
-          checkSlices i j avslice aslice
+        checkSlices i j avslice aslice
 
-          -- test functions that require additional index
-          for_ (-5 A... 10) \ix -> do
-            checkWithIndex ix avslice aslice
+        -- test functions that require additional index
+        for_ (-5 A... 10) \ix -> do
+          checkWithIndex ix avslice aslice
 
-          -- test functions that require a predicate
-          for_ [ (_ > 5)
-               , const false
-               , const true
-               , (\x -> x `mod` 2 == 1)
-               , (\x -> x `mod` 2 == 0)
-               , (_ < 5) ] \pred -> do
-            checkWithPredicate pred avslice aslice
+        -- test functions that require a predicate
+        for_ [ (_ > 5)
+             , const false
+             , const true
+             , (\x -> x `mod` 2 == 1)
+             , (\x -> x `mod` 2 == 0)
+             , (_ < 5) ] \pred -> do
+          checkWithPredicate pred avslice aslice
+
+        -- test functions that require two array views
+        for_ (0 A... 3) \n -> do
+          checkCombinations
+            (AV.take n avslice)
+            (AV.drop n avslice)
+            (A.take n aslice)
+            (A.drop n aslice)
 
 
 checkWithPredicate :: forall a.
                       Eq a => Show a =>
                       (a -> Boolean) -> ArrayView a -> Array a -> Effect Unit
 checkWithPredicate pred avslice aslice = do
-    -- span
+  -- span
   assertEqual { expected: fixInitRest (A.span pred aslice)
               , actual: AV.span pred avslice }
 
@@ -217,12 +229,12 @@ checkWithPredicate pred avslice aslice = do
 checkWithIndex :: Int -> ArrayView Int -> Array Int -> Effect Unit
 checkWithIndex ix avslice aslice = do
   for_ (-10 A... 10) \i -> do
-            -- slice
-            assertEquals
-              (AV.slice i ix avslice)
-              (A.slice  i ix aslice)
+    -- slice
+    assertEquals
+      (AV.slice i ix avslice)
+      (A.slice  i ix aslice)
 
-    -- take
+  -- take
   assertEquals
     (AV.take ix avslice)
     (A.take ix aslice)
@@ -287,6 +299,12 @@ checkWithIndex ix avslice aslice = do
     (AV.updateAt ix 0 avslice)
     (A.updateAt ix 0 aslice)
 
+  -- updateAtIndices
+  let ixs = [Tuple ix 0, Tuple (ix+1) 1]
+  assertEquals
+    (AV.updateAtIndices ixs avslice)
+    (A.updateAtIndices ixs aslice)
+
   -- modifyAt
   assertEqualsMaybe
     (AV.modifyAt ix (_ + 1) avslice)
@@ -340,6 +358,18 @@ checkSlices i j avslice aslice = do
   -- snoc
   assertEqual { expected: A.snoc aslice 0
               , actual: toArray (AV.snoc avslice 0) }
+
+  -- insert
+  for_ (-1 A... 1) \e -> do
+    assertEquals
+      (AV.insert e avslice)
+      (A.insert e aslice)
+
+  -- insertBy
+  for_ (-1 A... 1) \e -> do
+    assertEquals
+      (AV.insertBy (flip compare) e avslice)
+      (A.insertBy  (flip compare) e aslice)
 
   -- head
   assertEqual { expected: A.head aslice
@@ -404,6 +434,106 @@ checkSlices i j avslice aslice = do
     (AV.sortWith negate avslice)
     (A.sortWith negate aslice)
 
+  -- group
+  assertEqual { actual: AV.group avslice
+              , expected: fromArray $ map fromNonEmpty $ A.group aslice }
+
+  -- group'
+  assertEqual { actual: AV.group' avslice
+              , expected: fromArray $ map fromNonEmpty $ A.group' aslice }
+
+  -- groupBy
+  assertEqual { actual: AV.groupBy (map not eq) avslice
+              , expected: fromArray $ map fromNonEmpty $ A.groupBy (map not eq) aslice }
+
+  -- nub
+  assertEquals
+    (AV.nub avslice)
+    (A.nub aslice)
+
+  -- nubEq
+  assertEquals
+    (AV.nubEq avslice)
+    (A.nubEq aslice)
+
+  -- nubBy
+  assertEquals
+    (AV.nubBy (flip compare) avslice)
+    (A.nubBy (flip compare) aslice)
+
+  -- nubByEq
+  assertEquals
+    (AV.nubByEq (\x y -> x > y) avslice)
+    (A.nubByEq  (\x y -> x > y) aslice)
+
+  -- union
+  assertEquals
+    (AV.union (AV.take 2 avslice) (AV.drop 4 avslice))
+    (A.union (A.take 2 aslice) (A.drop 4 aslice))
+
+  -- unionBy
+  assertEquals
+    (AV.unionBy (\x y -> x > y) (AV.take 2 avslice) (AV.drop 4 avslice))
+    (A.unionBy  (\x y -> x > y) (A.take 2 aslice)   (A.drop 4 aslice))
+
+  -- delete, deleteBy
+  for_ avslice \el -> do
+    assertEquals
+      (AV.delete el avslice)
+      (A.delete el aslice)
+
+    assertEquals
+      (AV.deleteBy (\x y -> x > y) el avslice)
+      (A.deleteBy (\x y -> x > y) el aslice)
+
+  -- foldM
+  let fold_f = (\a b -> [a + b])
+  assertEqual { actual: AV.foldM fold_f 1 avslice
+              , expected: A.foldM fold_f 1 aslice }
+
+  let fold_f' = (\a b -> Just $ a + b)
+  -- foldRecM
+  assertEqual { actual:   AV.foldRecM fold_f' 1 avslice
+              , expected: A.foldRecM  fold_f' 1 aslice }
+
+
+checkCombinations :: forall a. Ord a => Show a =>
+                     ArrayView a -> ArrayView a ->
+                     Array a -> Array a -> Effect Unit
+checkCombinations av1 av2 a1 a2 = do
+  -- difference
+  assertEquals
+    (AV.difference av1 av2)
+    (A.difference a1 a2)
+
+  -- intersect
+  assertEquals
+    (AV.intersect av1 av2)
+    (A.intersect a1 a2)
+
+  -- intersectBy
+  assertEquals
+    (AV.intersectBy (\x y -> x > y) av1 av2)
+    (A.intersectBy (\x y -> x > y) a1 a2)
+
+  -- zipWith
+  assertEquals
+    (AV.zipWith (\x y -> x > y) av1 av2)
+    (A.zipWith (\x y -> x > y) a1 a2)
+
+  -- zipWIthA
+  assertEqual { actual: AV.zipWithA (\x y -> [x > y]) av1 av2
+              , expected: map fromArray $ A.zipWithA (\x y -> [x > y]) a1 a2 }
+
+  -- zip
+  assertEquals
+    (AV.zip av1 av2)
+    (A.zip a1 a2)
+
+  -- unzip
+  assertEqual { actual: AV.unzip (AV.zip av1 av2)
+              , expected: fromArray *** fromArray $ A.unzip (A.zip a1 a2) }
+
 
 fixYesNo :: forall a.
             { no :: Array a,     yes :: Array a } ->
@@ -449,3 +579,7 @@ logDebug = if debug then log else const (pure unit)
 
 inspect :: forall a. Show a => ArrayView a -> String
 inspect = genericShow
+
+fromNonEmpty :: NEA.NonEmptyArray ~> NE.NonEmpty ArrayView
+fromNonEmpty nav = let t = NEA.uncons nav in
+  t.head NE.:| fromArray (t.tail)
