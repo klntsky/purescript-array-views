@@ -7,7 +7,7 @@ import Data.Generic.Rep.Show (genericShow)
 import Data.Maybe (Maybe(..))
 import Data.Newtype (class Newtype)
 import Data.Traversable (class Foldable, class Traversable, for_)
-import Data.Tuple
+import Data.Tuple (Tuple(..))
 import Effect (Effect)
 import Effect.Console (log)
 import Partial.Unsafe (unsafePartial)
@@ -40,6 +40,14 @@ derive newtype instance bindArbitraryAV :: Bind ArbitraryAV
 derive newtype instance applicativeArbitraryAV :: Applicative ArbitraryAV
 derive newtype instance monadArbitraryAV :: Monad ArbitraryAV
 derive newtype instance traversableArbitraryAV :: Traversable ArbitraryAV
+
+
+main :: Effect Unit
+main = do
+  checkAssertions
+  checkEdgeCases
+  checkLaws
+  checkArrayToView
 
 
 checkLaws :: Effect Unit
@@ -108,17 +116,16 @@ checkArrayToView :: Effect Unit
 checkArrayToView = do
   let arr = [1,2,3]
   -- check that view converts between Array and ArrayView
-  assertEqual { expected: (AV.use (AV.use :: Array Int -> ArrayView Int) :: ArrayView Int -> Array Int) (fromArray arr)
+  assertEqual { expected: (AV.use (AV.use :: Array Int -> ArrayView Int) ::
+                              ArrayView Int -> Array Int) (fromArray arr)
               , actual: arr }
-  assertEqual { expected: (AV.use (AV.use :: ArrayView Int -> Array Int) :: Array Int -> ArrayView Int) arr
+  assertEqual { expected: (AV.use (AV.use :: ArrayView Int -> Array Int) ::
+                              Array Int -> ArrayView Int) arr
               , actual: fromArray arr }
 
-main :: Effect Unit
-main = do
-  checkEdgeCases
-  checkLaws
-  checkArrayToView
 
+checkAssertions :: Effect Unit
+checkAssertions = do
   -- Good old assertion testing.
   -- In our case we need to check some properties after slicing, to ensure that
   -- indices are correct.
@@ -138,7 +145,6 @@ main = do
     -- for all possible indices i & j...
     for_ (-10 A... 10) \i -> do
       for_ (-10 A...10) \j -> do
-
           -- ...check that slices from i to j are equal
           let aslice = A.slice i j a
               avslice = AV.slice i j av
@@ -149,169 +155,11 @@ main = do
                     " aslice: " <> show aslice <>
                     " avslice: " <> inspect avslice)
 
-          -- Eq
-          assert (avslice == avslice)
-
-          -- Ord
-          assertEqual { expected: aslice `compare` aslice
-                      , actual: avslice `compare` avslice }
-          assertEqual { expected: A.reverse aslice `compare` aslice
-                      , actual: AV.reverse avslice `compare` avslice }
-
-          -- fromArray <<< toArray == identity
-          assertEqual { expected: avslice
-                      , actual: fromArray (toArray avslice) }
-
-          assertEqual { expected: aslice
-                      , actual: toArray avslice }
-
-          assertEqual { expected: avslice
-                      , actual: fromArray aslice }
-
-          assertEquals
-            (AV.force avslice)
-            aslice
-
-          -- null
-          assertEqual { expected: A.null aslice
-                      , actual: AV.null avslice }
-
-          -- length
-          assertEqual { expected: A.length aslice
-                      , actual: AV.length avslice }
-
-          -- cons
-          assertEqual { expected: A.cons 0 aslice
-                      , actual: toArray (AV.cons 0 avslice) }
-
-          -- snoc
-          assertEqual { expected: A.snoc aslice 0
-                      , actual: toArray (AV.snoc avslice 0) }
-
-          -- head
-          assertEqual { expected: A.head aslice
-                      , actual: AV.head avslice }
-
-          -- last
-          assertEqual { expected: A.last aslice
-                      , actual: AV.last avslice }
-
-          -- tail
-          assertEqual { expected: A.tail aslice
-                      , actual: map toArray (AV.tail avslice) }
-
-          -- init
-          assertEqual { expected: A.init aslice
-                      , actual: map toArray (AV.init avslice) }
-
-          -- uncons
-          assertEqual { expected: A.uncons aslice
-                      , actual: map fixTail (AV.uncons avslice) }
-
-          -- unsnoc
-          assertEqual { expected: A.unsnoc aslice
-                      , actual: map fixInit (AV.unsnoc avslice) }
+          checkSlices i j avslice aslice
 
           -- test functions that require additional index
-          for_ (-1 A... 10) \ix -> do
-            -- index
-            assertEqual  { expected: A.index aslice ix
-                         , actual: AV.index avslice ix }
-
-            -- unsafeIndex
-            if ix >= 0 && ix < A.length aslice
-              then
-              assertEqual { expected: unsafePartial (A.unsafeIndex aslice ix)
-                          , actual: unsafePartial (AV.unsafeIndex avslice ix) }
-              else
-              assertThrows \_ ->
-              assertEqual { expected: unsafePartial (A.unsafeIndex aslice ix)
-                          , actual: unsafePartial (AV.unsafeIndex avslice ix) }
-
-            -- elemIndex
-            assertEqual { expected: A.elemIndex ix (aslice <> aslice)
-                        , actual: AV.elemIndex ix  (avslice <> avslice) }
-
-            -- elemLastIndex
-            assertEqual { expected: A.elemLastIndex ix (aslice <> aslice)
-                        , actual: AV.elemLastIndex ix  (avslice <> avslice) }
-
-            -- findIndex
-            assertEqual { expected: A.findIndex (_ == ix) (aslice <> aslice)
-                        , actual: AV.findIndex (_ == ix)  (avslice <> avslice) }
-
-            -- findLastIndex
-            assertEqual { expected: A.findIndex (_ == ix) (aslice <> aslice)
-                        , actual: AV.findIndex (_ == ix)  (avslice <> avslice) }
-
-            -- insertAt
-            assertEqualsMaybe
-              (AV.insertAt ix ix avslice)
-              (A.insertAt ix ix aslice)
-
-            -- deleteAt
-            assertEqualsMaybe
-              (AV.deleteAt ix avslice)
-              (A.deleteAt ix aslice)
-
-            -- updateAt
-            assertEqualsMaybe
-              (AV.updateAt ix 0 avslice)
-              (A.updateAt ix 0 aslice)
-
-            -- modifyAt
-            assertEqualsMaybe
-              (AV.modifyAt ix (_ + 1) avslice)
-              (A.modifyAt ix (_ + 1) aslice)
-
-            -- modifyAtIndices
-            assertEquals
-              (AV.modifyAtIndices avslice (_ + 1) avslice)
-              (A.modifyAtIndices aslice (_ + 1) aslice)
-
-            -- alterAt
-            assertEqualsMaybe
-              (AV.alterAt ix pure avslice)
-              (A.alterAt ix pure aslice)
-
-            -- reverse
-            assertEquals
-              (AV.reverse avslice)
-              (A.reverse aslice)
-
-            -- concat
-            assertEqual { expected: fromArray $ A.concat $ map (const aslice) aslice
-                        , actual: AV.concat $ map (const avslice) avslice }
-
-            -- concatMap
-            assertEquals
-              (AV.concatMap pure avslice)
-              (A.concatMap pure aslice)
-
-            -- slice
-            assertEquals
-              (AV.slice i ix avslice)
-              (A.slice  i ix aslice)
-
-            -- mapWithIndex
-            assertEquals
-              (AV.mapWithIndex (\n el -> Tuple n el) avslice)
-              (A.mapWithIndex (\n el -> Tuple n el) aslice)
-
-            -- sort
-            assertEquals
-              (AV.sort avslice)
-              (A.sort aslice)
-
-            -- sortBy
-            assertEquals
-              (AV.sortBy (flip compare) avslice)
-              (A.sortBy (flip compare) aslice)
-
-            -- sortWith
-            assertEquals
-              (AV.sortWith negate avslice)
-              (A.sortWith negate aslice)
+          for_ (-5 A... 10) \ix -> do
+            checkWithIndex ix avslice aslice
 
           -- test functions that require a predicate
           for_ [ (_ > 5)
@@ -319,62 +167,282 @@ main = do
                , const true
                , (\x -> x `mod` 2 == 1)
                , (\x -> x `mod` 2 == 0)
-               , (_ < 5) ] \f -> do
+               , (_ < 5) ] \pred -> do
+            checkWithPredicate pred avslice aslice
 
-            -- span
-            assertEqual { expected: fixInitRest (A.span f aslice)
-                        , actual: AV.span f avslice }
 
-            -- filter
+checkWithPredicate :: forall a.
+                      Eq a => Show a =>
+                      (a -> Boolean) -> ArrayView a -> Array a -> Effect Unit
+checkWithPredicate pred avslice aslice = do
+    -- span
+  assertEqual { expected: fixInitRest (A.span pred aslice)
+              , actual: AV.span pred avslice }
+
+  -- takeWhile
+  assertEquals
+    (AV.takeWhile pred avslice)
+    (A.takeWhile pred aslice)
+
+  -- dropWhile
+  assertEquals
+    (AV.dropWhile pred avslice)
+    (A.dropWhile pred aslice)
+
+  -- filter
+  assertEquals
+    (AV.filter pred avslice)
+    (A.filter pred aslice)
+
+  -- filterA
+  assertEqual { expected: A.filterA (pred >>> A.singleton) aslice
+              , actual: map toArray (AV.filterA (pred >>> A.singleton) avslice) }
+
+  -- partition
+  assertEqual { expected: fixYesNo (A.partition pred aslice)
+              , actual: AV.partition pred avslice }
+
+  -- mapMaybe
+  let g n = if pred n then Just n else Nothing
+  assertEquals
+    (AV.mapMaybe g avslice)
+    (A.mapMaybe g aslice)
+
+  -- catMaybes
+  assertEquals
+    (AV.catMaybes (map g avslice))
+    (A.catMaybes (map g aslice))
+
+
+checkWithIndex :: Int -> ArrayView Int -> Array Int -> Effect Unit
+checkWithIndex ix avslice aslice = do
+  for_ (-10 A... 10) \i -> do
+            -- slice
             assertEquals
-              (AV.filter f avslice)
-              (A.filter f aslice)
+              (AV.slice i ix avslice)
+              (A.slice  i ix aslice)
 
-            -- filterA
-            assertEqual { expected: A.filterA (f >>> A.singleton) aslice
-                        , actual: map toArray (AV.filterA (f >>> A.singleton) avslice) }
+    -- take
+  assertEquals
+    (AV.take ix avslice)
+    (A.take ix aslice)
 
-            -- partition
-            assertEqual { expected: fixYesNo (A.partition f aslice)
-                        , actual: AV.partition f avslice }
+  -- takeEnd
+  assertEquals
+    (AV.takeEnd ix avslice)
+    (A.takeEnd ix aslice)
 
-            -- mapMaybe
-            let g n = if f n then Just n else Nothing
-            assertEquals
-              (AV.mapMaybe g avslice)
-              (A.mapMaybe g aslice)
+  -- drop
+  assertEquals
+    (AV.drop ix avslice)
+    (A.drop ix aslice)
 
-            -- catMaybes
-            assertEquals
-              (AV.catMaybes (map g avslice))
-              (A.catMaybes (map g aslice))
+  -- dropEnd
+  assertEquals
+    (AV.dropEnd ix avslice)
+    (A.dropEnd ix aslice)
 
-fixYesNo :: forall a. { no :: Array a, yes :: Array a } -> { yes :: ArrayView a, no :: ArrayView a }
+  -- index
+  assertEqual { expected: A.index aslice ix
+              , actual: AV.index avslice ix }
+
+  -- unsafeIndex
+  if ix >= 0 && ix < A.length aslice
+    then
+    assertEqual { expected: unsafePartial (A.unsafeIndex aslice ix)
+                , actual: unsafePartial (AV.unsafeIndex avslice ix) }
+    else
+    assertThrows \_ ->
+    assertEqual { expected: unsafePartial (A.unsafeIndex aslice ix)
+                , actual: unsafePartial (AV.unsafeIndex avslice ix) }
+
+  -- elemIndex
+  assertEqual { expected: A.elemIndex ix (aslice <> aslice)
+              , actual: AV.elemIndex ix  (avslice <> avslice) }
+
+  -- elemLastIndex
+  assertEqual { expected: A.elemLastIndex ix (aslice <> aslice)
+              , actual: AV.elemLastIndex ix  (avslice <> avslice) }
+
+  -- findIndex
+  assertEqual { expected: A.findIndex (_ == ix) (aslice <> aslice)
+              , actual: AV.findIndex (_ == ix)  (avslice <> avslice) }
+
+  -- findLastIndex
+  assertEqual { expected: A.findIndex (_ == ix) (aslice <> aslice)
+              , actual: AV.findIndex (_ == ix)  (avslice <> avslice) }
+
+  -- insertAt
+  assertEqualsMaybe
+    (AV.insertAt ix ix avslice)
+    (A.insertAt ix ix aslice)
+
+  -- deleteAt
+  assertEqualsMaybe
+    (AV.deleteAt ix avslice)
+    (A.deleteAt ix aslice)
+
+  -- updateAt
+  assertEqualsMaybe
+    (AV.updateAt ix 0 avslice)
+    (A.updateAt ix 0 aslice)
+
+  -- modifyAt
+  assertEqualsMaybe
+    (AV.modifyAt ix (_ + 1) avslice)
+    (A.modifyAt ix (_ + 1) aslice)
+
+  -- alterAt
+  assertEqualsMaybe
+    (AV.alterAt ix pure avslice)
+    (A.alterAt ix pure aslice)
+
+
+checkSlices :: Int -> Int -> ArrayView Int -> Array Int -> Effect Unit
+checkSlices i j avslice aslice = do
+
+  -- Eq
+  assert (avslice == avslice)
+
+  -- Ord
+  assertEqual { expected: aslice `compare` aslice
+              , actual: avslice `compare` avslice }
+  assertEqual { expected: A.reverse aslice `compare` aslice
+              , actual: AV.reverse avslice `compare` avslice }
+
+  -- fromArray <<< toArray == identity
+  assertEqual { expected: avslice
+              , actual: fromArray (toArray avslice) }
+
+  assertEqual { expected: aslice
+              , actual: toArray avslice }
+
+  assertEqual { expected: avslice
+              , actual: fromArray aslice }
+
+  -- force
+  assertEquals
+    (AV.force avslice)
+    aslice
+
+  -- null
+  assertEqual { expected: A.null aslice
+              , actual: AV.null avslice }
+
+  -- length
+  assertEqual { expected: A.length aslice
+              , actual: AV.length avslice }
+
+  -- cons
+  assertEqual { expected: A.cons 0 aslice
+              , actual: toArray (AV.cons 0 avslice) }
+
+  -- snoc
+  assertEqual { expected: A.snoc aslice 0
+              , actual: toArray (AV.snoc avslice 0) }
+
+  -- head
+  assertEqual { expected: A.head aslice
+              , actual: AV.head avslice }
+
+  -- last
+  assertEqual { expected: A.last aslice
+              , actual: AV.last avslice }
+
+  -- tail
+  assertEqual { expected: A.tail aslice
+              , actual: map toArray (AV.tail avslice) }
+
+  -- init
+  assertEqual { expected: A.init aslice
+              , actual: map toArray (AV.init avslice) }
+
+  -- uncons
+  assertEqual { expected: A.uncons aslice
+              , actual: map fixTail (AV.uncons avslice) }
+
+  -- unsnoc
+  assertEqual { expected: A.unsnoc aslice
+              , actual: map fixInit (AV.unsnoc avslice) }
+
+  -- modifyAtIndices
+  assertEquals
+    (AV.modifyAtIndices avslice (_ + 1) avslice)
+    (A.modifyAtIndices aslice (_ + 1) aslice)
+
+  -- reverse
+  assertEquals
+    (AV.reverse avslice)
+    (A.reverse aslice)
+
+  -- concat
+  assertEqual { expected: fromArray $ A.concat $ map (const aslice) aslice
+              , actual: AV.concat $ map (const avslice) avslice }
+
+  -- concatMap
+  assertEquals
+    (AV.concatMap pure avslice)
+    (A.concatMap pure aslice)
+
+  -- mapWithIndex
+  assertEquals
+    (AV.mapWithIndex (\n el -> Tuple n el) avslice)
+    (A.mapWithIndex (\n el -> Tuple n el) aslice)
+
+  -- sort
+  assertEquals
+    (AV.sort avslice)
+    (A.sort aslice)
+
+  -- sortBy
+  assertEquals
+    (AV.sortBy (flip compare) avslice)
+    (A.sortBy (flip compare) aslice)
+
+  -- sortWith
+  assertEquals
+    (AV.sortWith negate avslice)
+    (A.sortWith negate aslice)
+
+
+fixYesNo :: forall a.
+            { no :: Array a,     yes :: Array a } ->
+            { no :: ArrayView a, yes :: ArrayView a }
 fixYesNo { yes, no } = { yes: fromArray yes, no: fromArray no }
 
-fixTail :: forall a. { tail :: ArrayView a, head :: a } -> { head :: a, tail :: Array a }
+fixTail :: forall a.
+           { tail :: ArrayView a, head :: a } ->
+           { tail :: Array a,     head :: a }
 fixTail { head, tail } = { head, tail: toArray tail }
 
-fixInit :: forall a. { init :: ArrayView a, last :: a } -> { last :: a, init :: Array a }
+fixInit :: forall a.
+           { init :: ArrayView a, last :: a } ->
+           { init :: Array a,     last :: a }
 fixInit { last, init } = { last, init: toArray init }
 
-fixInitRest :: forall a. { rest :: Array a, init :: Array a } -> { init :: ArrayView a, rest :: ArrayView a }
+fixInitRest :: forall a.
+               { init :: Array a ,    rest :: Array a} ->
+               { init :: ArrayView a, rest :: ArrayView a }
 fixInitRest { init, rest } = { init: fromArray init
                              , rest: fromArray rest }
 
-assertEquals :: forall a. Eq a => Show a => ArrayView a -> Array a -> Effect Unit
+
+assertEquals :: forall a. Eq a => Show a =>
+                ArrayView a -> Array a -> Effect Unit
 assertEquals av a = do
   assertEqual { expected: av
               , actual: fromArray a }
   assertEqual { expected: a
               , actual: toArray av }
 
-assertEqualsMaybe :: forall a. Eq a => Show a => Maybe (ArrayView a) -> Maybe (Array a) -> Effect Unit
+assertEqualsMaybe :: forall a. Eq a => Show a =>
+                     Maybe (ArrayView a) -> Maybe (Array a) -> Effect Unit
 assertEqualsMaybe av a = do
   assertEqual { expected: av
               , actual: map fromArray a }
   assertEqual { expected: a
               , actual: map toArray av }
+
 
 logDebug :: String -> Effect Unit
 logDebug = if debug then log else const (pure unit)

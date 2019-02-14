@@ -354,23 +354,28 @@ slice start' end' (View view @ { from, len, arr }) =
 
 -- | *O(1)*
 take :: forall a. Int -> ArrayView a -> ArrayView a
-take n = slice 0 n
+take n = slice 0 (toNonNegative n)
 
 -- | *O(1)*
 takeEnd :: forall a. Int -> ArrayView a -> ArrayView a
 takeEnd n xs = drop (length xs - n) xs
 
+-- | See also: `span`.
 takeWhile :: forall a. (a -> Boolean) -> ArrayView a -> ArrayView a
 takeWhile p xs = (span p xs).init
 
 -- | *O(1)*
 drop :: forall a. Int -> ArrayView a -> ArrayView a
-drop n av = slice n (length av) av
+drop n av = slice (toNonNegative n) (length av) av
 
 -- | *O(1)*
 dropEnd :: forall a. Int -> ArrayView a -> ArrayView a
-dropEnd n xs = take (length xs - n) xs
+dropEnd n xs = take (length xs - n) xs -- `toNonNegative` is not needed because
+                                       -- `slice` will just return the whole
+                                       -- `ArrayView` if the second argument is
+                                       -- greater than the length.
 
+-- | See also: `span`.
 dropWhile :: forall a. (a -> Boolean) -> ArrayView a -> ArrayView a
 dropWhile p xs = (span p xs).rest
 
@@ -482,6 +487,9 @@ force :: forall a. ArrayView a -> ArrayView a
 force = toArray >>> fromArray
 
 -- internal
+
+toNonNegative :: Int -> Int
+toNonNegative n = if n > 0 then n else 0
 
 fromNonEmpty :: NEA.NonEmptyArray ~> NonEmpty ArrayView
 fromNonEmpty nav = let t = NEA.uncons nav in
