@@ -533,23 +533,23 @@ empty = View { from: 0, len: 0, arr: [] }
 class ArrayToView a b where
   use :: a -> b
 
-instance useArrayViewId :: ArrayToView a a where
+instance arrayToViewId :: ArrayToView a a where
   use x = x
 
-else instance useArrayViewBi :: (ArrayToView b a, ArrayToView c d) => ArrayToView (a -> c) (b -> d) where
+else instance arrayToViewBi :: (ArrayToView b a, ArrayToView c d) => ArrayToView (a -> c) (b -> d) where
   use f x = use (f (use x))
 
-else instance useArrayViewFrom :: ArrayToView a b => ArrayToView (Array a) (ArrayView b) where
+else instance arrayToViewFrom :: ArrayToView a b => ArrayToView (Array a) (ArrayView b) where
   use = fromArray <<< map use
 
-else instance useArrayViewTo :: ArrayToView a b => ArrayToView (ArrayView a) (Array b) where
+else instance arrayToViewTo :: ArrayToView a b => ArrayToView (ArrayView a) (Array b) where
   use = toArray <<< map use
 
-else instance useArrayViewFromNEA :: ArrayToView (NEA.NonEmptyArray a) (NonEmpty ArrayView a) where
+else instance arrayToViewFromNEA :: ArrayToView (NEA.NonEmptyArray a) (NonEmpty ArrayView a) where
   use = fromNonEmpty
 
-else instance useArrayViewToNEA :: ArrayToView (NE.NonEmpty ArrayView a) (NEA.NonEmptyArray a) where
+else instance arrayToViewToNEA :: ArrayToView (NE.NonEmpty ArrayView a) (NEA.NonEmptyArray a) where
   use = toNonEmpty
 
-else instance useArrayViewFunctor :: (Functor f, ArrayToView a b) => ArrayToView (f a) (f b) where
+else instance arrayToViewFunctor :: (Functor f, ArrayToView a b) => ArrayToView (f a) (f b) where
   use = map use
