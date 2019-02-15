@@ -85,7 +85,7 @@ where
 
 
 import Control.Alternative (class Alternative)
-import Control.Lazy (class Lazy)
+import Control.Lazy (class Lazy, defer)
 import Control.Monad.Rec.Class (class MonadRec)
 import Data.Array as A
 import Data.Array.NonEmpty as NEA
@@ -102,7 +102,8 @@ import Data.Traversable (class Foldable, class Traversable, foldMap, foldl, fold
 import Data.Tuple (Tuple)
 import Data.Unfoldable (class Unfoldable, unfoldr)
 import Data.Unfoldable1 (class Unfoldable1, unfoldr1)
-import Prelude (class Applicative, class Apply, class Bind, class Eq, class Functor, class Monad, class Monoid, class Ord, class Semigroup, class Show, type (~>), Ordering, append, apply, bind, compare, eq, map, otherwise, pure, show, (&&), (+), (-), (<), (<<<), (<=), (<>), (==), (>), (>=), (>>>), (||))
+import Prelude (class Applicative, class Apply, class Bind, class Eq, class Functor, class Monad, class Monoid, class Ord, class Semigroup, class Show, type (~>), Ordering, append, apply, bind, compare, eq, map, otherwise, pure, show, (&&), (+), (-), (<), (<<<), (<=), (<>), (==), (>), (>=), (>>>), (||), (<$>), (<*>))
+import Control.Alt ((<|>))
 
 
 newtype ArrayView a = View { from :: Int, len :: Int, arr :: Array a }
@@ -115,7 +116,7 @@ instance showArrayView :: Show a => Show (ArrayView a) where
   show av  = "fromArray " <> show (toArray av)
 
 instance eqArrayView :: Eq a => Eq (ArrayView a) where
-  eq xs ys = lenXs == length ys && go (lenXs)
+  eq xs ys = lenXs == length ys && go lenXs
     where
       lenXs = length xs
       go (-1) = true
@@ -194,13 +195,11 @@ infix 8 range as ..
 replicate :: forall a. Int -> a -> ArrayView a
 replicate = use (A.replicate :: Int -> a -> Array a)
 
--- Using `Lazy (f (ArrayView a))` constraint is impossible due to `OrphanInstances`.
-some :: forall f a. Alternative f => Lazy (f (Array a)) => f a -> f (ArrayView a)
-some = use (A.some :: Lazy (f (Array a)) => f a -> f (Array a))
+some :: forall f a. Alternative f => Lazy (f (ArrayView a)) => f a -> f (ArrayView a)
+some v = (:) <$> v <*> defer (\_ -> many v)
 
--- Using `Lazy (f (ArrayView a))` constraint is impossible due to `OrphanInstances`.
-many :: forall f a. Alternative f => Lazy (f (Array a)) => f a -> f (ArrayView a)
-many = use (A.many :: Lazy (f (Array a)) => f a -> f (Array a))
+many :: forall f a. Alternative f => Lazy (f (ArrayView a)) => f a -> f (ArrayView a)
+many v = some v <|> pure empty
 
 null :: forall a. ArrayView a -> Boolean
 null (View { len: 0 }) = true
