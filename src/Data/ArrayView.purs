@@ -99,23 +99,21 @@ import Data.ArrayView.Internal
   , use
   ) as Exports
 
-import Data.ArrayView.Internal
 import Control.Alt ((<|>))
 import Control.Alternative (class Alternative)
 import Control.Lazy (class Lazy, defer)
 import Control.Monad.Rec.Class (class MonadRec)
 import Data.Array as A
-import Data.Array.NonEmpty as NEA
+import Data.Array.NonEmpty (NonEmptyArray)
+import Data.ArrayView.Internal
+import Data.Foldable (foldl, foldr, foldMap, fold, intercalate, elem, notElem, find, findMap, any, all) as Exports
 import Data.Maybe (Maybe(..))
-import Data.NonEmpty (NonEmpty)
-import Data.Profunctor.Strong ((***))
 import Data.Traversable (class Foldable)
+import Data.Traversable (scanl, scanr) as Exports
 import Data.Tuple (Tuple)
 import Data.Unfoldable (class Unfoldable)
-import Prelude (class Applicative, class Eq, class Monad, class Ord, type (~>), Ordering, bind, mempty, otherwise, pure, (&&), (+), (-), (<), (<$>), (<*>), (<<<), (<=), (>), (>=), (>>>), (||))
+import Prelude (class Applicative, class Eq, class Monad, class Ord, type (~>), Ordering, bind, mempty, otherwise, pure, (&&), (+), (-), (<), (<$>), (<*>), (<=), (>), (>=), (>>>), (||))
 
-import Data.Traversable (scanl, scanr) as Exports
-import Data.Foldable (foldl, foldr, foldMap, fold, intercalate, elem, notElem, find, findMap, any, all) as Exports
 
 fromFoldable :: forall f. Foldable f => f ~> ArrayView
 fromFoldable = A.fromFoldable >>> fromArray
@@ -341,13 +339,13 @@ sortBy f = use (A.sortBy f)
 sortWith :: forall a b. Ord b => (a -> b) -> ArrayView a -> ArrayView a
 sortWith f = use (A.sortWith f)
 
-group :: forall a. Eq a => ArrayView a -> ArrayView (NonEmpty ArrayView a)
-group = use (A.group :: Array a -> Array (NEA.NonEmptyArray a))
+group :: forall a. Eq a => ArrayView a -> ArrayView (NonEmptyArrayView a)
+group = use (A.group :: Array a -> Array (NonEmptyArray a))
 
-group' :: forall a. Ord a => ArrayView a -> ArrayView (NonEmpty ArrayView a)
-group' = use (A.group' :: Array a -> Array (NEA.NonEmptyArray a))
+group' :: forall a. Ord a => ArrayView a -> ArrayView (NonEmptyArrayView a)
+group' = use (A.group' :: Array a -> Array (NonEmptyArray a))
 
-groupBy :: forall a. (a -> a -> Boolean) -> ArrayView a -> ArrayView (NonEmpty ArrayView a)
+groupBy :: forall a. (a -> a -> Boolean) -> ArrayView a -> ArrayView (NonEmptyArrayView a)
 groupBy f = use (A.groupBy f)
 
 nub :: forall a. Ord a => ArrayView a -> ArrayView a
@@ -395,7 +393,7 @@ zip :: forall a b. ArrayView a -> ArrayView b -> ArrayView (Tuple a b)
 zip = use (A.zip :: Array a -> Array b -> Array (Tuple a b))
 
 unzip :: forall a b. ArrayView (Tuple a b) -> Tuple (ArrayView a) (ArrayView b)
-unzip = (fromArray *** fromArray) <<< A.unzip <<< toArray
+unzip = use (A.unzip :: Array (Tuple a b) -> Tuple (Array a) (Array b))
 
 foldM :: forall m a b. Monad m => (a -> b -> m a) -> a -> ArrayView b -> m a
 foldM f = use (A.foldM f)

@@ -1,14 +1,11 @@
 module Test.Main where
 
 import Data.Array as A
-import Data.Array.NonEmpty as NEA
-import Data.ArrayView (ArrayView, fromArray, toArray)
 import Data.ArrayView as AV
+import Data.ArrayView.Internal
 import Data.Generic.Rep.Show (genericShow)
 import Data.Maybe (Maybe(..))
-import Data.NaturalTransformation (type (~>))
 import Data.Newtype (class Newtype)
-import Data.NonEmpty as NE
 import Data.Profunctor.Strong ((***))
 import Data.Traversable (class Foldable, class Traversable, for_)
 import Data.Tuple (Tuple(..))
@@ -436,15 +433,15 @@ checkSlices i j avslice aslice = do
 
   -- group
   assertEqual { actual: AV.group avslice
-              , expected: fromArray $ map fromNonEmpty $ A.group aslice }
+              , expected: fromArray $ map fromNonEmptyArray $ A.group aslice }
 
   -- group'
   assertEqual { actual: AV.group' avslice
-              , expected: fromArray $ map fromNonEmpty $ A.group' aslice }
+              , expected: fromArray $ map fromNonEmptyArray $ A.group' aslice }
 
   -- groupBy
   assertEqual { actual: AV.groupBy (map not eq) avslice
-              , expected: fromArray $ map fromNonEmpty $ A.groupBy (map not eq) aslice }
+              , expected: fromArray $ map fromNonEmptyArray $ A.groupBy (map not eq) aslice }
 
   -- nub
   assertEquals
@@ -579,7 +576,3 @@ logDebug = if debug then log else const (pure unit)
 
 inspect :: forall a. Show a => ArrayView a -> String
 inspect = genericShow
-
-fromNonEmpty :: NEA.NonEmptyArray ~> NE.NonEmpty ArrayView
-fromNonEmpty nav = let t = NEA.uncons nav in
-  t.head NE.:| fromArray (t.tail)

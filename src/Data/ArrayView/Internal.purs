@@ -13,42 +13,33 @@ module Data.ArrayView.Internal
   , use
 
   , whenNonEmpty
-
+  , fromNonEmptyArray
   , fromNEAV
   )
 where
 
 import Data.Array as A
 import Data.Array.NonEmpty as NEA
+import Data.Bifunctor (bimap)
 import Data.Eq (class Eq1)
 import Data.FoldableWithIndex (class FoldableWithIndex, foldMapWithIndex, foldlWithIndex, foldrWithIndex)
-import Data.FunctorWithIndex (class FunctorWithIndex)
+import Data.FunctorWithIndex (class FunctorWithIndex, mapWithIndex)
 import Data.Generic.Rep (class Generic)
 import Data.Maybe (Maybe(..))
-import Data.Newtype (class Newtype)
+import Data.Newtype (class Newtype, unwrap, wrap)
 import Data.NonEmpty (NonEmpty, (:|))
 import Data.NonEmpty as NE
 import Data.Ord (class Ord1)
 import Data.Ordering (Ordering(..))
-import Data.Traversable (class Foldable, class Traversable, foldMap, foldl, foldr, sequenceDefault, traverse)
-import Data.TraversableWithIndex (class TraversableWithIndex, traverseWithIndexDefault)
-import Data.Unfoldable (class Unfoldable, unfoldr)
-import Data.Unfoldable1 (class Unfoldable1, unfoldr1)
-import Prelude (class Applicative, class Apply, class Bind, class Eq, class Functor, class Monad, class Monoid, class Ord, class Semigroup, class Show, type (~>), append, apply, compare, eq, map, otherwise, show, (&&), (+), (-), (<), (<<<), (<>), (==), (>=), (>>>))
-import Data.Array.NonEmpty as NEA
-
-import Data.Eq (class Eq1)
-import Data.FoldableWithIndex (class FoldableWithIndex, foldMapWithIndex, foldlWithIndex, foldrWithIndex)
-import Data.FunctorWithIndex (class FunctorWithIndex, mapWithIndex)
-import Data.Newtype (class Newtype, unwrap, wrap)
-import Data.NonEmpty (NonEmpty, (:|))
-import Data.Ord (class Ord1)
 import Data.Semigroup.Foldable (class Foldable1, fold1Default, foldMap1)
 import Data.Semigroup.Traversable (class Traversable1, sequence1, traverse1Default)
-import Data.Traversable (class Foldable, class Traversable, foldMap, foldl, foldr)
+import Data.Traversable (class Foldable, class Traversable, foldMap, foldl, foldr, sequenceDefault, traverse)
 import Data.TraversableWithIndex (class TraversableWithIndex, traverseWithIndexDefault)
-import Data.Unfoldable1 (class Unfoldable1)
-import Prelude (class Applicative, class Apply, class Bind, class Eq, class Functor, class Monad, class Ord, class Semigroup, class Show, type (~>), ap, map, mempty, show, (+), (<<<), (<>), (>>>))
+import Data.Tuple
+import Data.Unfoldable (class Unfoldable, unfoldr)
+import Data.Unfoldable1 (class Unfoldable1, unfoldr1)
+import Prelude (class Applicative, class Apply, class Bind, class Eq, class Functor, class Monad, class Monoid, class Ord, class Semigroup, class Show, type (~>), append, mempty, ap, apply, compare, eq, map, otherwise, show, (&&), (+), (-), (<), (<<<), (<>), (==), (>=), (>>>))
+
 
 -- * ArrayView
 
@@ -272,27 +263,42 @@ class ArrayToView a b where
 instance arrayToViewId :: ArrayToView a a where
   use x = x
 
-else instance arrayToViewBi :: (ArrayToView b a, ArrayToView c d) => ArrayToView (a -> c) (b -> d) where
+else instance arrayToViewBi :: (ArrayToView b a, ArrayToView c d)
+                            => ArrayToView (a -> c) (b -> d) where
   use f x = use (f (use x))
 
-else instance arrayToViewFrom :: ArrayToView a b => ArrayToView (Array a) (ArrayView b) where
+else instance arrayToViewFrom :: ArrayToView a b
+                              => ArrayToView (Array a) (ArrayView b) where
   use = fromArray <<< map use
 
-else instance arrayToViewTo :: ArrayToView a b => ArrayToView (ArrayView a) (Array b) where
+else instance arrayToViewTo :: ArrayToView a b
+                            => ArrayToView (ArrayView a) (Array b) where
   use = toArray <<< map use
 
-else instance arrayToViewFromNEA :: ArrayToView (NEA.NonEmptyArray a) (NonEmpty ArrayView a) where
-  use = fromNonEmpty
+else instance arrayToViewFromNEA :: ArrayToView a b
+                                 => ArrayToView (NEA.NonEmptyArray a)
+                                                (NonEmptyArrayView b) where
+  use = map use <<< fromNonEmptyArray
 
-else instance arrayToViewToNEA :: ArrayToView (NE.NonEmpty ArrayView a) (NEA.NonEmptyArray a) where
-  use = toNonEmpty
+else instance arrayToViewToNEA :: ArrayToView a b
+                               => ArrayToView (NonEmptyArrayView a)
+                                              (NEA.NonEmptyArray b) where
+  use = map use <<< toNonEmptyArray
 
-else instance arrayToViewFunctor :: (Functor f, ArrayToView a b) => ArrayToView (f a) (f b) where
+else instance arrayToViewTuple :: (ArrayToView a b, ArrayToView c d)
+                               => ArrayToView (Tuple a c)
+                                              (Tuple b d) where
+  use = bimap use use
+
+
+else instance arrayToViewFunctor :: (Functor f, ArrayToView a b)
+                                 => ArrayToView (f a) (f b) where
   use = map use
 
 
 fromNEAV :: forall a. NonEmptyArrayView a -> ArrayView a
-fromNEAV (NonEmptyArrayView m) = NE.fromNonEmpty (use (A.cons :: a -> Array a -> Array a)) m
+fromNEAV (NonEmptyArrayView m) =
+  NE.fromNonEmpty (use (A.cons :: a -> Array a -> Array a)) m
 
 fromNonEmptyArray :: NEA.NonEmptyArray ~> NonEmptyArrayView
 fromNonEmptyArray m =
@@ -300,7 +306,8 @@ fromNonEmptyArray m =
            a :| as -> a :| fromArray as)
 
 toNonEmptyArray :: NonEmptyArrayView ~> NEA.NonEmptyArray
-toNonEmptyArray (NonEmptyArrayView (x :| xs)) = NEA.fromNonEmpty (x :| toArray xs)
+toNonEmptyArray (NonEmptyArrayView (x :| xs)) =
+  NEA.fromNonEmpty (x :| toArray xs)
 
 whenNonEmpty :: forall a b. (ArrayView a -> b) -> ArrayView a -> Maybe b
 whenNonEmpty _ (View { len: 0 }) = Nothing
