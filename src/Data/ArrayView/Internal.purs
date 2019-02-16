@@ -1,17 +1,21 @@
 module Data.ArrayView.Internal
-       ( ArrayView (..)
-       , fromArray
-       , toArray
+  ( ArrayView (..)
+  , fromArray
+  , toArray
 
-       , singleton
-       , length
-       , index, (!!)
-       , concatMap
+  , singleton
+  , length
+  , index, (!!)
+  , concatMap
 
-       , NonEmptyArrayView (..)
-       , class ArrayToView
-       , use
-       )
+  , NonEmptyArrayView (..)
+  , class ArrayToView
+  , use
+
+  , whenNonEmpty
+
+  , fromNEAV
+  )
 where
 
 import Data.Array as A
@@ -297,3 +301,7 @@ fromNonEmptyArray m =
 
 toNonEmptyArray :: NonEmptyArrayView ~> NEA.NonEmptyArray
 toNonEmptyArray (NonEmptyArrayView (x :| xs)) = NEA.fromNonEmpty (x :| toArray xs)
+
+whenNonEmpty :: forall a b. (ArrayView a -> b) -> ArrayView a -> Maybe b
+whenNonEmpty _ (View { len: 0 }) = Nothing
+whenNonEmpty f av           = Just (f av)

@@ -407,8 +407,3 @@ foldRecM f = use (A.foldRecM f)
 
 toNonNegative :: Int -> Int
 toNonNegative n = if n > 0 then n else 0
-
-
-whenNonEmpty :: forall a b. (ArrayView a -> b) -> ArrayView a -> Maybe b
-whenNonEmpty _ (View { len: 0 }) = Nothing
-whenNonEmpty f av           = Just (f av)

@@ -1,9 +1,9 @@
 module Data.ArrayView.NonEmpty
   ( module Exports
---   , fromArray
---   , fromNonEmpty
---   , toArray
---   , toNonEmpty
+  , fromArrayView
+  , fromNonEmpty
+  , toArrayView
+  , toNonEmpty
 
 --   , fromFoldable
 --   , fromFoldable1
@@ -94,4 +94,27 @@ module Data.ArrayView.NonEmpty
 --   , unsafeIndex
   ) where
 
+import Prelude
+import Data.NonEmpty
+import Data.Newtype
+import Data.Array as A
+import Data.Maybe
+
 import Data.ArrayView.Internal (NonEmptyArrayView) as Exports
+import Data.ArrayView.Internal
+import Data.ArrayView
+
+-- | *O(1)*
+fromArrayView :: forall a. ArrayView a -> Maybe (NonEmptyArrayView a)
+fromArrayView av = case uncons av of
+  Just { head, tail } -> Just (wrap (head :| tail))
+  Nothing -> Nothing
+
+fromNonEmpty :: forall a. NonEmpty ArrayView a -> NonEmptyArrayView a
+fromNonEmpty = wrap
+
+toArrayView :: forall a. NonEmptyArrayView a -> ArrayView a
+toArrayView = fromNEAV
+
+toNonEmpty :: forall a. NonEmptyArrayView a -> NonEmpty ArrayView a
+toNonEmpty = unwrap
