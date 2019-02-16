@@ -1,196 +1,121 @@
 module Data.ArrayView
-       ( ArrayView
-       , fromArray
-       , toArray
+  ( fromFoldable
+  , toUnfoldable
+  , (..), range
+  , replicate
+  , some
+  , many
 
-       , force
+  , null
+  , (:), cons
+  , snoc
+  , insert
+  , insertBy
 
-       , fromFoldable
-       , toUnfoldable
-       , singleton
-       , range, (..)
-       , replicate
-       , some
-       , many
-       , null
-       , length
-       , cons, (:)
-       , snoc
-       , insert
-       , insertBy
-       , head
-       , last
-       , tail
-       , init
-       , uncons
-       , unsnoc
-       , index, (!!)
-       , elemIndex
-       , elemLastIndex
-       , findIndex
-       , findLastIndex
-       , insertAt
-       , deleteAt
-       , updateAt
-       , updateAtIndices
-       , modifyAt
-       , modifyAtIndices
-       , alterAt
-       , reverse
-       , concat
-       , concatMap
-       , filter
-       , partition
-       , filterA
-       , mapMaybe
-       , catMaybes
-       , mapWithIndex
-       , sort
-       , sortBy
-       , sortWith
-       , slice
-       , take
-       , takeEnd
-       , takeWhile
-       , drop
-       , dropEnd
-       , dropWhile
-       , span
-       , group
-       , group'
-       , groupBy
-       , nub
-       , nubEq
-       , nubBy
-       , nubByEq
-       , union
-       , unionBy
-       , delete
-       , deleteBy
-       , difference
-       , intersect
-       , intersectBy
-       , zipWith
-       , zipWithA
-       , zip
-       , unzip
-       , foldM
-       , foldRecM
-       , unsafeIndex
+  , head
+  , last
+  , tail
+  , init
+  , uncons
+  , unsnoc
 
-       , class ArrayToView
-       , use
-       )
+  , elemIndex
+  , elemLastIndex
+  , findIndex
+  , findLastIndex
+  , insertAt
+  , deleteAt
+  , updateAt
+  , updateAtIndices
+  , modifyAt
+  , modifyAtIndices
+  , alterAt
+
+  , reverse
+  , concat
+  , filter
+  , partition
+  , filterA
+  , mapMaybe
+  , catMaybes
+  , mapWithIndex
+
+  , sort
+  , sortBy
+  , sortWith
+
+
+
+  , slice
+  , take
+  , takeEnd
+  , takeWhile
+  , drop
+  , dropEnd
+  , dropWhile
+  , span
+  , group
+  , group'
+  , groupBy
+
+  , nub
+  , nubEq
+  , nubBy
+  , nubByEq
+  , union
+  , unionBy
+  , delete
+  , deleteBy
+
+  , (\\), difference
+  , intersect
+  , intersectBy
+
+  , zipWith
+  , zipWithA
+  , zip
+  , unzip
+
+  , foldM
+  , foldRecM
+
+  , unsafeIndex
+
+  , force
+  , module Exports
+  )
 where
 
 
+import Data.ArrayView.Internal
+  ( ArrayView
+  , fromArray
+  , toArray
+  , singleton
+  , length
+  , index, (!!)
+  , concatMap
+  , class ArrayToView
+  , use
+  ) as Exports
+
+import Data.ArrayView.Internal
 import Control.Alt ((<|>))
 import Control.Alternative (class Alternative)
 import Control.Lazy (class Lazy, defer)
 import Control.Monad.Rec.Class (class MonadRec)
 import Data.Array as A
 import Data.Array.NonEmpty as NEA
-import Data.Eq (class Eq1)
-import Data.FoldableWithIndex (class FoldableWithIndex, foldMapWithIndex, foldlWithIndex, foldrWithIndex)
-import Data.FunctorWithIndex (class FunctorWithIndex)
-import Data.Generic.Rep (class Generic)
 import Data.Maybe (Maybe(..))
-import Data.Newtype (class Newtype)
-import Data.NonEmpty (NonEmpty, (:|))
-import Data.NonEmpty as NE
-import Data.Ord (class Ord1)
-import Data.Ordering (Ordering(..))
+import Data.NonEmpty (NonEmpty)
 import Data.Profunctor.Strong ((***))
-import Data.Traversable (class Foldable, class Traversable, foldMap, foldl, foldr, sequenceDefault, traverse)
-import Data.TraversableWithIndex (class TraversableWithIndex, traverseWithIndex, traverseWithIndexDefault)
+import Data.Traversable (class Foldable)
 import Data.Tuple (Tuple)
-import Data.Unfoldable (class Unfoldable, unfoldr)
-import Data.Unfoldable1 (class Unfoldable1, unfoldr1)
-import Prelude (class Applicative, class Apply, class Bind, class Eq, class Functor, class Monad, class Monoid, class Ord, class Semigroup, class Show, type (~>), Ordering, append, apply, bind, compare, eq, map, otherwise, pure, show, (&&), (+), (-), (<), (<<<), (<=), (<>), (==), (>), (>=), (>>>), (||), (<$>), (<*>))
+import Data.Unfoldable (class Unfoldable)
+import Prelude (class Applicative, class Eq, class Monad, class Ord, type (~>), Ordering, bind, mempty, otherwise, pure, (&&), (+), (-), (<), (<$>), (<*>), (<<<), (<=), (>), (>=), (>>>), (||))
 
-
-newtype ArrayView a = View { from :: Int, len :: Int, arr :: Array a }
-
-derive instance newtypeArrayView :: Newtype (ArrayView a) _
-
-derive instance genericArrayView :: Generic (ArrayView a) _
-
-instance showArrayView :: Show a => Show (ArrayView a) where
-  show av  = "fromArray " <> show (toArray av)
-
-instance eqArrayView :: Eq a => Eq (ArrayView a) where
-  eq xs ys = lenXs == length ys && go lenXs
-    where
-      lenXs = length xs
-      go (-1) = true
-      go i    = if xs !! i == ys !! i then
-                  go (i - 1)
-                else
-                  false
-
-instance eq1ArrayView :: Eq1 ArrayView where
-  eq1 xs ys = xs `eq` ys
-
-instance ordArrayView :: Ord a => Ord (ArrayView a) where
-  compare xs ys = go 0
-    where
-      compareLengths = compare (length xs) (length ys)
-      go i =
-        case xs !! i, ys !! i of
-          Just x, Just y -> let cmprsn = compare x y in
-            if cmprsn == EQ then
-              go (i + 1)
-            else cmprsn
-          _, _ -> compareLengths
-
-instance ord1ArrayView :: Ord1 ArrayView where
-  compare1 xs ys = xs `compare` ys
-
-instance functorArrayView :: Functor ArrayView where
-  map f = toArray >>> map f >>> fromArray
-
-instance applyArrayView :: Apply ArrayView where
-  apply f arr = fromArray (apply (toArray f) (toArray arr))
-
-instance bindArrayView :: Bind ArrayView where
-  bind m f = concatMap f m
-
-instance applicativeArrayView :: Applicative ArrayView where
-  pure = singleton
-
-instance monadArrayView :: Monad ArrayView
-
-instance functorWithIndexArrayView :: FunctorWithIndex Int ArrayView where
-  mapWithIndex = mapWithIndex --  local definition
-
-instance foldableWithIndexArrayView :: FoldableWithIndex Int ArrayView where
-  foldrWithIndex f z = toArray >>> foldrWithIndex f z
-  foldlWithIndex f z = toArray >>> foldlWithIndex f z
-  foldMapWithIndex f = toArray >>> foldMapWithIndex f
-
-instance traversableWithIndexArrayView :: TraversableWithIndex Int ArrayView where
-  traverseWithIndex = traverseWithIndexDefault
-
-instance foldableArrayView :: Foldable ArrayView where
-  foldl f z = toArray >>> foldl f z
-  foldr f z = toArray >>> foldr f z
-  foldMap f = toArray >>> foldMap f
-
-instance traversableArrayView :: Traversable ArrayView where
-  traverse f av = map fromArray (traverse f (toArray av))
-  sequence = sequenceDefault
-
-instance unfoldable1ArrayView :: Unfoldable1 ArrayView where
-  unfoldr1 f z = fromArray (unfoldr1 f z)
-
-instance unfoldableArrayView :: Unfoldable ArrayView where
-  unfoldr f z = fromArray (unfoldr f z)
-
-instance semigroupArrayView :: Semigroup (ArrayView a) where
-  append = use (append :: Array a -> Array a -> Array a)
-
-instance monoidArrayView :: Monoid (ArrayView a) where
-  mempty = empty
+import Data.Traversable (scanl, scanr) as Exports
+import Data.Foldable (foldl, foldr, foldMap, fold, intercalate, elem, notElem, find, findMap, any, all) as Exports
 
 fromFoldable :: forall f. Foldable f => f ~> ArrayView
 fromFoldable = A.fromFoldable >>> fromArray
@@ -198,13 +123,15 @@ fromFoldable = A.fromFoldable >>> fromArray
 toUnfoldable :: forall f. Unfoldable f => ArrayView ~> f
 toUnfoldable = toArray >>> A.toUnfoldable
 
-singleton :: forall a. a -> ArrayView a
-singleton a = View { from: 0, len: 1, arr: [a] }
 
 range :: Int -> Int -> ArrayView Int
 range = use A.range
 
 infix 8 range as ..
+
+null :: forall a. ArrayView a -> Boolean
+null (View { len: 0 }) = true
+null _                 = false
 
 replicate :: forall a. Int -> a -> ArrayView a
 replicate = use (A.replicate :: Int -> a -> Array a)
@@ -213,14 +140,7 @@ some :: forall f a. Alternative f => Lazy (f (ArrayView a)) => f a -> f (ArrayVi
 some v = (:) <$> v <*> defer (\_ -> many v)
 
 many :: forall f a. Alternative f => Lazy (f (ArrayView a)) => f a -> f (ArrayView a)
-many v = some v <|> pure empty
-
-null :: forall a. ArrayView a -> Boolean
-null (View { len: 0 }) = true
-null _                 = false
-
-length :: forall a. ArrayView a -> Int
-length (View { len }) = len
+many v = some v <|> pure mempty
 
 -- | *O(n)*
 cons :: forall a. a -> ArrayView a -> ArrayView a
@@ -244,34 +164,17 @@ head av = av !! 0
 last :: forall a. ArrayView a -> Maybe a
 last av = av !! (length av - 1)
 
--- | *O(1)*
-tail :: forall a. ArrayView a -> Maybe (ArrayView a)
-tail = whenNonEmpty \(View view) -> View view { from = view.from + 1, len = view.len - 1 }
 
--- | *O(1)*
-init :: forall a. ArrayView a -> Maybe (ArrayView a)
-init = whenNonEmpty \(View view) -> View view { len = view.len - 1 }
-
--- | *O(1)*
-uncons :: forall a. ArrayView a -> Maybe { head :: a, tail :: ArrayView a }
-uncons av @ (View { from, arr }) = do
-  head <- arr A.!! from
-  tail <- tail av
-  pure { head, tail }
-
--- | *O(1)*
-unsnoc :: forall a. ArrayView a -> Maybe { init :: ArrayView a, last :: a }
-unsnoc av @ (View { from, len, arr }) = do
-  init <- init av
-  last <- arr A.!! (from + len - 1)
-  pure { init, last }
-
-index :: forall a. ArrayView a -> Int -> Maybe a
-index av @ (View { from, len, arr }) ix
-  | ix >= 0 && ix < len = arr A.!! (from + ix)
-  | otherwise = Nothing
-
-infixl 8 index as !!
+-- | Perform deferred `slice`. This function allows the garbage collector to
+-- | free the array referenced by the given `ArrayView`.
+-- |
+-- | *O(n)*
+-- |
+-- | ```purescript
+-- | force = toArray >>> fromArray
+-- | ```
+force :: forall a. ArrayView a -> ArrayView a
+force = toArray >>> fromArray
 
 elemIndex :: forall a. Eq a => a -> ArrayView a -> Maybe Int
 elemIndex e = use (A.elemIndex e)
@@ -312,9 +215,6 @@ reverse = use (A.reverse :: Array a -> Array a)
 concat :: forall a. ArrayView (ArrayView a) -> ArrayView a
 concat = use (A.concat :: Array (Array a) -> Array a)
 
-concatMap :: forall a b. (a -> ArrayView b) -> ArrayView a -> ArrayView b
-concatMap = use (A.concatMap :: (a -> Array b) -> Array a -> Array b)
-
 filter :: forall a. (a -> Boolean) -> ArrayView a -> ArrayView a
 filter f = use (A.filter f)
 
@@ -324,32 +224,12 @@ partition p = use (A.partition p) >>> fix
     fix :: { no :: Array a, yes :: Array a } -> { yes :: ArrayView a, no :: ArrayView a }
     fix { yes, no } = { yes: fromArray yes, no: fromArray no }
 
-filterA :: forall a f. Applicative f => (a -> f Boolean) -> ArrayView a -> f (ArrayView a)
-filterA f = use (A.filterA f)
-
-mapMaybe :: forall a b. (a -> Maybe b) -> ArrayView a -> ArrayView b
-mapMaybe f = use (A.mapMaybe f)
-
-catMaybes :: forall a. ArrayView (Maybe a) -> ArrayView a
-catMaybes = use (A.catMaybes :: Array (Maybe a) -> Array a)
-
-mapWithIndex :: forall a b. (Int -> a -> b) -> ArrayView a -> ArrayView b
-mapWithIndex f = use (A.mapWithIndex f)
-
-sort :: forall a. Ord a => ArrayView a -> ArrayView a
-sort = use (A.sort :: Array a -> Array a)
-
-sortBy :: forall a. (a -> a -> Ordering) -> ArrayView a -> ArrayView a
-sortBy f = use (A.sortBy f)
-
-sortWith :: forall a b. Ord b => (a -> b) -> ArrayView a -> ArrayView a
-sortWith f = use (A.sortWith f)
 
 -- | *O(1)*
 slice :: forall a. Int -> Int -> ArrayView a -> ArrayView a
 slice start' end' (View view @ { from, len, arr }) =
   if end <= start || start >= len
-  then empty --  forget about the original array
+  then mempty --  forget about the original array
              -- (allow it to be GC'ed)
   else View view { from = from + start, len = end - start }
   where
@@ -364,6 +244,32 @@ slice start' end' (View view @ { from, len, arr }) =
     fix n
       | n < 0 = len + n
       | otherwise = n
+
+-- | *O(1)*
+tail :: forall a. ArrayView a -> Maybe (ArrayView a)
+tail = whenNonEmpty \(View view) -> View view { from = view.from + 1, len = view.len - 1 }
+
+-- | *O(1)*
+init :: forall a. ArrayView a -> Maybe (ArrayView a)
+init = whenNonEmpty \(View view) -> View view { len = view.len - 1 }
+
+-- | *O(1)*
+uncons :: forall a. ArrayView a -> Maybe { head :: a, tail :: ArrayView a }
+uncons av @ (View { from, arr }) = do
+  head <- arr A.!! from
+  tail <- tail av
+  pure { head, tail }
+
+-- | *O(1)*
+unsnoc :: forall a. ArrayView a -> Maybe { init :: ArrayView a, last :: a }
+unsnoc av @ (View { from, len, arr }) = do
+  init <- init av
+  last <- arr A.!! (from + len - 1)
+  pure { init, last }
+
+unsafeIndex :: forall a. Partial => ArrayView a -> Int -> a
+unsafeIndex (View view @ { from, len, arr }) ix
+  | ix < len && ix >= 0 = A.unsafeIndex arr (ix + from)
 
 -- | *O(1)*
 take :: forall a. Int -> ArrayView a -> ArrayView a
@@ -402,16 +308,38 @@ span p av =
   -- we can take advantage of it.
   case go 0 of
     Just 0 ->
-      { init: empty, rest: av }
+      { init: mempty, rest: av }
     Just i ->
       { init: slice 0 i av, rest: slice i (length av) av }
     Nothing ->
-      { init: av, rest: empty }
+      { init: av, rest: mempty }
   where
     go i =
       case index av i of
         Just x -> if p x then go (i + 1) else Just i
         Nothing -> Nothing
+
+
+filterA :: forall a f. Applicative f => (a -> f Boolean) -> ArrayView a -> f (ArrayView a)
+filterA f = use (A.filterA f)
+
+mapMaybe :: forall a b. (a -> Maybe b) -> ArrayView a -> ArrayView b
+mapMaybe f = use (A.mapMaybe f)
+
+catMaybes :: forall a. ArrayView (Maybe a) -> ArrayView a
+catMaybes = use (A.catMaybes :: Array (Maybe a) -> Array a)
+
+mapWithIndex :: forall a b. (Int -> a -> b) -> ArrayView a -> ArrayView b
+mapWithIndex f = use (A.mapWithIndex f)
+
+sort :: forall a. Ord a => ArrayView a -> ArrayView a
+sort = use (A.sort :: Array a -> Array a)
+
+sortBy :: forall a. (a -> a -> Ordering) -> ArrayView a -> ArrayView a
+sortBy f = use (A.sortBy f)
+
+sortWith :: forall a b. Ord b => (a -> b) -> ArrayView a -> ArrayView a
+sortWith f = use (A.sortWith f)
 
 group :: forall a. Eq a => ArrayView a -> ArrayView (NonEmpty ArrayView a)
 group = use (A.group :: Array a -> Array (NEA.NonEmptyArray a))
@@ -449,6 +377,8 @@ deleteBy f = use (A.deleteBy f)
 difference :: forall a. Eq a => ArrayView a -> ArrayView a -> ArrayView a
 difference = use (A.difference :: Array a -> Array a -> Array a)
 
+infix 5 difference as \\
+
 intersect :: forall a. Eq a => ArrayView a -> ArrayView a -> ArrayView a
 intersect = use (A.intersect :: Array a -> Array a -> Array a)
 
@@ -473,96 +403,12 @@ foldM f = use (A.foldM f)
 foldRecM :: forall m a b. MonadRec m => (a -> b -> m a) -> a -> ArrayView b -> m a
 foldRecM f = use (A.foldRecM f)
 
-unsafeIndex :: forall a. Partial => ArrayView a -> Int -> a
-unsafeIndex (View view @ { from, len, arr }) ix
-  | ix < len && ix >= 0 = A.unsafeIndex arr (ix + from)
-
-fromArray :: Array ~> ArrayView
-fromArray arr = let len = A.length arr in
-  View { from: 0, len, arr }
-
-toArray :: ArrayView ~> Array
-toArray (View { from, len, arr })
-  | from == 0 && A.length arr == len =
-    arr
-  | otherwise =
-    A.slice from (from + len) arr
-
--- | Perform deferred `slice`. This function allows the garbage collector to
--- | free the array referenced by the given `ArrayView`.
--- |
--- | *O(n)*
--- |
--- | ```purescript
--- | force = toArray >>> fromArray
--- | ```
-force :: forall a. ArrayView a -> ArrayView a
-force = toArray >>> fromArray
-
--- internal
+-- * internal
 
 toNonNegative :: Int -> Int
 toNonNegative n = if n > 0 then n else 0
 
-fromNonEmpty :: NEA.NonEmptyArray ~> NonEmpty ArrayView
-fromNonEmpty nav = let t = NEA.uncons nav in
-  t.head :| fromArray (t.tail)
-
-toNonEmpty :: NonEmpty ArrayView ~> NEA.NonEmptyArray
-toNonEmpty narr = NEA.cons' (NE.head narr) (toArray (NE.tail narr))
 
 whenNonEmpty :: forall a b. (ArrayView a -> b) -> ArrayView a -> Maybe b
 whenNonEmpty _ (View { len: 0 }) = Nothing
 whenNonEmpty f av           = Just (f av)
-
-empty :: forall a. ArrayView a
-empty = View { from: 0, len: 0, arr: [] }
-
-
--- | This typeclass allows to convert any function that operates on `Array` to a
--- | function that operates on `ArrayView` and vice versa. `use` only inserts
--- | `fromArray` and `toArray` in the right places, so don't expect it to
--- | increase performance.
--- |
--- | *Note*: either type annotation or partial application of some number of
--- | arguments is needed, because otherwise the type inference will not be
--- | able to guess the correct type.
--- |
--- | ```
--- | import Data.Array as A
--- |
--- | -- OK
--- | zipWith :: forall a b c. (a -> b -> c) -> ArrayView a -> ArrayView b -> ArrayView c
--- | zipWith = use (A.zipWith :: (a -> b -> c) -> Array a -> Array b -> Array c)
--- |
--- | -- OK
--- | zipWith :: forall a b c. (a -> b -> c) -> ArrayView a -> ArrayView b -> ArrayView c
--- | zipWith f = use (A.zipWith f) -- all three type parameters are tied to `f`
--- |
--- | -- Type error
--- | zipWith :: forall a b c. (a -> b -> c) -> ArrayView a -> ArrayView b -> ArrayView c
--- | zipWith = use A.zipWith
--- | ```
-class ArrayToView a b where
-  use :: a -> b
-
-instance arrayToViewId :: ArrayToView a a where
-  use x = x
-
-else instance arrayToViewBi :: (ArrayToView b a, ArrayToView c d) => ArrayToView (a -> c) (b -> d) where
-  use f x = use (f (use x))
-
-else instance arrayToViewFrom :: ArrayToView a b => ArrayToView (Array a) (ArrayView b) where
-  use = fromArray <<< map use
-
-else instance arrayToViewTo :: ArrayToView a b => ArrayToView (ArrayView a) (Array b) where
-  use = toArray <<< map use
-
-else instance arrayToViewFromNEA :: ArrayToView (NEA.NonEmptyArray a) (NonEmpty ArrayView a) where
-  use = fromNonEmpty
-
-else instance arrayToViewToNEA :: ArrayToView (NE.NonEmpty ArrayView a) (NEA.NonEmptyArray a) where
-  use = toNonEmpty
-
-else instance arrayToViewFunctor :: (Functor f, ArrayToView a b) => ArrayToView (f a) (f b) where
-  use = map use
