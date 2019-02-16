@@ -84,12 +84,15 @@ module Data.ArrayView
 where
 
 
+import Control.Alt ((<|>))
 import Control.Alternative (class Alternative)
 import Control.Lazy (class Lazy, defer)
 import Control.Monad.Rec.Class (class MonadRec)
 import Data.Array as A
 import Data.Array.NonEmpty as NEA
 import Data.Eq (class Eq1)
+import Data.FoldableWithIndex (class FoldableWithIndex, foldMapWithIndex, foldlWithIndex, foldrWithIndex)
+import Data.FunctorWithIndex (class FunctorWithIndex)
 import Data.Generic.Rep (class Generic)
 import Data.Maybe (Maybe(..))
 import Data.Newtype (class Newtype)
@@ -99,11 +102,11 @@ import Data.Ord (class Ord1)
 import Data.Ordering (Ordering(..))
 import Data.Profunctor.Strong ((***))
 import Data.Traversable (class Foldable, class Traversable, foldMap, foldl, foldr, sequenceDefault, traverse)
+import Data.TraversableWithIndex (class TraversableWithIndex, traverseWithIndex, traverseWithIndexDefault)
 import Data.Tuple (Tuple)
 import Data.Unfoldable (class Unfoldable, unfoldr)
 import Data.Unfoldable1 (class Unfoldable1, unfoldr1)
 import Prelude (class Applicative, class Apply, class Bind, class Eq, class Functor, class Monad, class Monoid, class Ord, class Semigroup, class Show, type (~>), Ordering, append, apply, bind, compare, eq, map, otherwise, pure, show, (&&), (+), (-), (<), (<<<), (<=), (<>), (==), (>), (>=), (>>>), (||), (<$>), (<*>))
-import Control.Alt ((<|>))
 
 
 newtype ArrayView a = View { from :: Int, len :: Int, arr :: Array a }
@@ -156,6 +159,17 @@ instance applicativeArrayView :: Applicative ArrayView where
   pure = singleton
 
 instance monadArrayView :: Monad ArrayView
+
+instance functorWithIndexArrayView :: FunctorWithIndex Int ArrayView where
+  mapWithIndex = mapWithIndex --  local definition
+
+instance foldableWithIndexArrayView :: FoldableWithIndex Int ArrayView where
+  foldrWithIndex f z = toArray >>> foldrWithIndex f z
+  foldlWithIndex f z = toArray >>> foldlWithIndex f z
+  foldMapWithIndex f = toArray >>> foldMapWithIndex f
+
+instance traversableWithIndexArrayView :: TraversableWithIndex Int ArrayView where
+  traverseWithIndex = traverseWithIndexDefault
 
 instance foldableArrayView :: Foldable ArrayView where
   foldl f z = toArray >>> foldl f z
