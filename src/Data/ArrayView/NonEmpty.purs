@@ -109,7 +109,7 @@ import Data.Semigroup.Foldable (class Foldable1)
 import Data.Tuple (Tuple)
 import Data.Unfoldable (class Unfoldable)
 import Data.Unfoldable1 (class Unfoldable1)
-import Prelude (class Applicative, class Eq, class Monad, class Ord, Ordering, bind, eq, flip, map, mempty, otherwise, pure, (+), (-), (<>), (==), (>>>))
+import Prelude (class Applicative, class Eq, class Monad, class Ord, Ordering, bind, eq, flip, map, mempty, otherwise, pure, (+), (-), (<>), (==), (>>>), (<=))
 
 
 -- | *O(1)*
@@ -166,7 +166,7 @@ cons a = use (NE.cons a)
 
 infixr 6 cons as :
 
-cons' :: forall a. a -> Array a -> NonEmptyArrayView a
+cons' :: forall a. a -> ArrayView a -> NonEmptyArrayView a
 cons' a = use (NE.cons' a)
 
 snoc :: forall a. NonEmptyArrayView a -> a -> NonEmptyArrayView a
@@ -310,9 +310,12 @@ slice = use (NE.slice :: Int -> Int -> NonEmptyArray a -> Array a)
 take :: forall a. Int -> NonEmptyArrayView a -> ArrayView a
 take = use (NE.take :: Int -> NonEmptyArray a -> Array a)
 
--- TODO
 takeEnd :: forall a. Int -> NonEmptyArrayView a -> ArrayView a
-takeEnd = use (NE.takeEnd :: Int -> NonEmptyArray a -> Array a)
+takeEnd n ne@(NonEmptyArrayView (a :| as)) =
+  if n <= length ne - 1 then
+    AV.takeEnd n as
+  else
+    fromNEAV ne
 
 takeWhile :: forall a. (a -> Boolean) -> NonEmptyArrayView a -> ArrayView a
 takeWhile f = use (NE.takeWhile f)

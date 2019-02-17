@@ -290,7 +290,6 @@ else instance arrayToViewTuple :: (ArrayToView a b, ArrayToView c d)
                                               (Tuple b d) where
   use = bimap use use
 
-
 else instance arrayToViewFunctor :: (Functor f, ArrayToView a b)
                                  => ArrayToView (f a) (f b) where
   use = map use
