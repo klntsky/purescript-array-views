@@ -7,27 +7,18 @@ module Test.ArrayView
 where
 
 import Test.ArrayView.Common
+
 import Data.Array as A
 import Data.ArrayView as AV
-import Data.ArrayView.NonEmpty as NEAV
-import Data.Array.NonEmpty as NE
-import Data.Array.NonEmpty (NonEmptyArray)
-import Data.ArrayView.Internal
-import Data.Generic.Rep.Show (genericShow)
+import Data.ArrayView.Internal (ArrayView, fromArray, fromNonEmptyArray, toArray)
 import Data.Maybe (Maybe(..))
-import Data.Newtype (class Newtype)
 import Data.Profunctor.Strong ((***))
-import Data.Traversable (class Foldable, class Traversable, for_)
+import Data.Traversable (for_)
 import Data.Tuple (Tuple(..))
 import Effect (Effect)
-import Effect.Console (log)
 import Partial.Unsafe (unsafePartial)
-import Prelude (class Applicative, class Apply, class Bind, class Eq, class Functor, class Monad, class Monoid, class Semigroup, class Show, class Ord, Unit, compare, const, discard, flip, eq, map, mod, negate, not, pure, show, unit, ($), (&&), (+), (<), (<$>), (<>), (==), (>), (>=), (>>>), (<*>), (#))
+import Prelude (class Eq, class Ord, class Show, Unit, compare, const, discard, eq, flip, map, negate, not, pure, ($), (&&), (+), (<), (<>), (==), (>), (>=), (>>>))
 import Test.Assert (assert, assertEqual, assertThrows)
-import Test.QuickCheck.Arbitrary (class Arbitrary, arbitrary)
-import Test.QuickCheck.Laws.Control (checkApplicative, checkApply, checkBind, checkMonad)
-import Test.QuickCheck.Laws.Data (checkEq, checkFoldable, checkFunctor, checkMonoid, checkSemigroup)
-import Type.Proxy (Proxy(..), Proxy2(..))
 
 
 checkSlices :: Int -> Int -> ArrayView Int -> Array Int -> Effect Unit

@@ -2,27 +2,17 @@ module Test.ArrayView.Laws (checkLaws) where
 
 import Data.ArrayView.Internal
 
-import Data.Array as A
-import Data.Array.NonEmpty (NonEmptyArray)
-import Data.Array.NonEmpty as NE
-import Data.ArrayView as AV
+import Control.Apply (lift2)
 import Data.ArrayView.NonEmpty as NEAV
-import Data.Generic.Rep.Show (genericShow)
-import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Newtype (class Newtype)
-import Data.Profunctor.Strong ((***))
-import Data.Traversable (class Foldable, class Traversable, for_)
-import Data.Tuple (Tuple(..))
+import Data.Traversable (class Foldable, class Traversable)
 import Effect (Effect)
 import Effect.Console (log)
-import Partial.Unsafe (unsafePartial)
-import Prelude (class Applicative, class Apply, class Bind, class Eq, class Functor, class Monad, class Monoid, class Semigroup, class Show, class Ord, Unit, compare, const, discard, flip, eq, map, mod, negate, not, pure, show, unit, ($), (&&), (+), (<), (<$>), (<>), (==), (>), (>=), (>>>), (<*>), (#))
-import Test.Assert (assert, assertEqual, assertThrows)
+import Prelude (class Applicative, class Apply, class Bind, class Eq, class Functor, class Monad, class Monoid, class Semigroup, Unit, discard, (<$>))
 import Test.QuickCheck.Arbitrary (class Arbitrary, arbitrary)
 import Test.QuickCheck.Laws.Control (checkApplicative, checkApply, checkBind, checkMonad)
 import Test.QuickCheck.Laws.Data (checkEq, checkFoldable, checkFunctor, checkMonoid, checkSemigroup)
 import Type.Proxy (Proxy(..), Proxy2(..))
-import Control.Apply (lift2)
 
 
 -- * some boilerplate required to bypass OrphanInstances.

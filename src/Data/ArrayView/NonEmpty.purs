@@ -92,6 +92,8 @@ module Data.ArrayView.NonEmpty
   , foldRecM
 
   , unsafeIndex
+
+  , force
   ) where
 
 import Control.Monad.Rec.Class (class MonadRec)
@@ -99,7 +101,7 @@ import Data.Array.NonEmpty (NonEmptyArray)
 import Data.Array.NonEmpty as NE
 import Data.ArrayView (use)
 import Data.ArrayView as AV
-import Data.ArrayView.Internal (ArrayView(..), NonEmptyArrayView(..), fromArray, fromNEAV)
+import Data.ArrayView.Internal (ArrayView(..), NonEmptyArrayView(..), fromArray, fromNEAV, toNonNegative)
 import Data.ArrayView.Internal (NonEmptyArrayView) as Exports
 import Data.Foldable (class Foldable)
 import Data.Maybe (Maybe(..), fromMaybe)
@@ -109,7 +111,7 @@ import Data.Semigroup.Foldable (class Foldable1)
 import Data.Tuple (Tuple)
 import Data.Unfoldable (class Unfoldable)
 import Data.Unfoldable1 (class Unfoldable1)
-import Prelude (class Applicative, class Eq, class Monad, class Ord, Ordering, bind, eq, flip, map, mempty, otherwise, pure, (+), (-), (<>), (==), (>>>), (<=))
+import Prelude (class Applicative, class Eq, class Monad, class Ord, Ordering, bind, eq, flip, map, mempty, not, otherwise, pure, (+), (-), (<=), (<>), (==), (>>>), (>))
 
 
 -- | *O(1)*
@@ -218,9 +220,9 @@ elemLastIndex :: forall a. Eq a => a -> NonEmptyArrayView a -> Maybe Int
 elemLastIndex a = findLastIndex (_ == a)
 
 findIndex :: forall a. (a -> Boolean) -> NonEmptyArrayView a -> Maybe Int
-findIndex f (NonEmptyArrayView (a :| as))
-  | f a = Just 0
-  | otherwise = map (_ + 1) (AV.findIndex f as)
+findIndex p (NonEmptyArrayView (a :| as))
+  | p a = Just 0
+  | otherwise = map (_ + 1) (AV.findIndex p as)
 
 findLastIndex :: forall a. (a -> Boolean) -> NonEmptyArrayView a -> Maybe Int
 findLastIndex f (NonEmptyArrayView (a :| as)) =
@@ -312,33 +314,27 @@ take :: forall a. Int -> NonEmptyArrayView a -> ArrayView a
 take = use (NE.take :: Int -> NonEmptyArray a -> Array a)
 
 takeEnd :: forall a. Int -> NonEmptyArrayView a -> ArrayView a
-takeEnd n ne@(NonEmptyArrayView (a :| as)) =
-  if n <= length ne - 1 then
-    AV.takeEnd n as
-  else
-    fromNEAV ne
+takeEnd n neav = drop (length neav - n) neav
 
 takeWhile :: forall a. (a -> Boolean) -> NonEmptyArrayView a -> ArrayView a
-takeWhile f = use (NE.takeWhile f)
+takeWhile p neav = (span p neav).init
 
--- TODO
 drop :: forall a. Int -> NonEmptyArrayView a -> ArrayView a
-drop = use (NE.drop :: Int -> NonEmptyArray a -> Array a)
+drop n neav = slice (toNonNegative n) (length neav) neav
 
 dropEnd :: forall a. Int -> NonEmptyArrayView a -> ArrayView a
-dropEnd = use (NE.dropEnd :: Int -> NonEmptyArray a -> Array a)
+dropEnd n neav = take (length neav - n) neav
 
--- -- TODO
 dropWhile :: forall a. (a -> Boolean) -> NonEmptyArrayView a -> ArrayView a
-dropWhile f = use (NE.dropWhile f)
+dropWhile p neav = (span p neav).rest
 
 span
   :: forall a
    . (a -> Boolean)
   -> NonEmptyArrayView a
   -> { init :: ArrayView a, rest :: ArrayView a }
-span f (NonEmptyArrayView (a :| as))
-  | f a = let tmp = AV.span f as in
+span p (NonEmptyArrayView (a :| as))
+  | p a = let tmp = AV.span p as in
     tmp { init = pure a <> tmp.init }
   | otherwise = { init: mempty, rest: AV.cons a as }
 
@@ -366,7 +362,7 @@ unionBy
   -> NonEmptyArrayView a
   -> NonEmptyArrayView a
   -> NonEmptyArrayView a
-unionBy f = use (NE.unionBy f)
+unionBy p = use (NE.unionBy p)
 
 unionBy'
   :: forall a
@@ -374,13 +370,13 @@ unionBy'
   -> NonEmptyArrayView a
   -> ArrayView a
   -> NonEmptyArrayView a
-unionBy' f = use (NE.unionBy' f)
+unionBy' p = use (NE.unionBy' p)
 
 delete :: forall a. Eq a => a -> NonEmptyArrayView a -> ArrayView a
 delete a = use (NE.delete a)
 
 deleteBy :: forall a. (a -> a -> Boolean) -> a -> NonEmptyArrayView a -> ArrayView a
-deleteBy f = use (NE.deleteBy f)
+deleteBy p = use (NE.deleteBy p)
 
 difference :: forall a. Eq a => NonEmptyArrayView a -> NonEmptyArrayView a -> ArrayView a
 difference = use (NE.difference :: NonEmptyArray a -> NonEmptyArray a -> Array a)
@@ -400,7 +396,7 @@ intersectBy
   -> NonEmptyArrayView a
   -> NonEmptyArrayView a
   -> ArrayView a
-intersectBy f = use (NE.intersectBy f)
+intersectBy p = use (NE.intersectBy p)
 
 intersectBy'
   :: forall a
@@ -408,7 +404,7 @@ intersectBy'
   -> NonEmptyArrayView a
   -> ArrayView a
   -> ArrayView a
-intersectBy' f = use (NE.intersectBy' f)
+intersectBy' p = use (NE.intersectBy' p)
 
 infix 5 difference as \\
 
@@ -444,3 +440,10 @@ foldRecM f = use (NE.foldRecM f)
 
 unsafeIndex :: forall a. Partial => NonEmptyArrayView a -> Int -> a
 unsafeIndex = use (NE.unsafeIndex :: Partial => NonEmptyArray a -> Int -> a)
+
+-- | Perform deferred `slice`. This function allows the garbage collector to
+-- | free unused parts of the array referenced by given `NonEmptyArrayView`.
+-- |
+-- | *O(n)*
+force :: forall a. NonEmptyArrayView a -> NonEmptyArrayView a
+force (NonEmptyArrayView (a :| as)) = NonEmptyArrayView (a :| AV.force as)

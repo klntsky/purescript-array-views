@@ -15,6 +15,7 @@ module Data.ArrayView.Internal
   , whenNonEmpty
   , fromNonEmptyArray
   , fromNEAV
+  , toNonNegative
   )
 where
 
@@ -38,7 +39,7 @@ import Data.TraversableWithIndex (class TraversableWithIndex, traverseWithIndexD
 import Data.Tuple
 import Data.Unfoldable (class Unfoldable, unfoldr)
 import Data.Unfoldable1 (class Unfoldable1, unfoldr1)
-import Prelude (class Applicative, class Apply, class Bind, class Eq, class Functor, class Monad, class Monoid, class Ord, class Semigroup, class Show, type (~>), append, mempty, ap, apply, compare, eq, map, otherwise, show, (&&), (+), (-), (<), (<<<), (<>), (==), (>=), (>>>))
+import Prelude (class Applicative, class Apply, class Bind, class Eq, class Functor, class Monad, class Monoid, class Ord, class Semigroup, class Show, type (~>), append, mempty, ap, apply, compare, eq, map, otherwise, show, (&&), (+), (-), (<), (<<<), (<>), (==), (>=), (>>>), (>))
 
 
 -- * ArrayView
@@ -311,3 +312,6 @@ toNonEmptyArray (NonEmptyArrayView (x :| xs)) =
 whenNonEmpty :: forall a b. (ArrayView a -> b) -> ArrayView a -> Maybe b
 whenNonEmpty _ (View { len: 0 }) = Nothing
 whenNonEmpty f av           = Just (f av)
+
+toNonNegative :: Int -> Int
+toNonNegative n = if n > 0 then n else 0

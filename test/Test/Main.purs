@@ -1,31 +1,22 @@
 module Test.Main where
 
-import Data.ArrayView.Internal
 import Test.ArrayView
 import Test.ArrayView.Common
-import Test.ArrayView.NonEmpty
 import Test.ArrayView.Laws (checkLaws)
+import Test.ArrayView.NonEmpty
 
 import Data.Array as A
 import Data.Array.NonEmpty (NonEmptyArray)
 import Data.Array.NonEmpty as NE
 import Data.ArrayView as AV
+import Data.ArrayView.Internal
 import Data.ArrayView.NonEmpty as NEAV
-import Data.Generic.Rep.Show (genericShow)
-import Data.Maybe (Maybe(..))
-import Data.Newtype (class Newtype)
-import Data.Profunctor.Strong ((***))
-import Data.Traversable (class Foldable, class Traversable, for_)
+import Data.Traversable (for_)
 import Data.Tuple (Tuple(..))
 import Effect (Effect)
 import Effect.Console (log)
-import Partial.Unsafe (unsafePartial)
-import Prelude (class Applicative, class Apply, class Bind, class Eq, class Functor, class Monad, class Monoid, class Semigroup, class Show, class Ord, Unit, compare, const, discard, flip, eq, map, mod, negate, not, pure, show, unit, ($), (&&), (+), (<), (<$>), (<>), (==), (>), (>=), (>>>), (<*>), (#))
-import Test.Assert (assert, assertEqual, assertThrows)
-import Test.QuickCheck.Arbitrary (class Arbitrary, arbitrary)
-import Test.QuickCheck.Laws.Control (checkApplicative, checkApply, checkBind, checkMonad)
-import Test.QuickCheck.Laws.Data (checkEq, checkFoldable, checkFunctor, checkMonoid, checkSemigroup)
-import Type.Proxy (Proxy(..), Proxy2(..))
+import Prelude (Unit, compare, const, discard, mod, negate, pure, show, unit, (<), (<>), (==), (>))
+import Test.Assert (assertEqual)
 
 
 -- * set to true to get verbose logs

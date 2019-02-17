@@ -11,27 +11,14 @@ module Test.ArrayView.Common
        )
 where
 
-import Data.Array as A
-import Data.ArrayView as AV
-import Data.ArrayView.NonEmpty as NEAV
-import Data.Array.NonEmpty as NE
-import Data.Array.NonEmpty (NonEmptyArray)
 import Data.ArrayView.Internal
 import Data.Generic.Rep.Show (genericShow)
-import Data.Maybe (Maybe(..))
-import Data.Newtype (class Newtype)
-import Data.Profunctor.Strong ((***))
-import Data.Traversable (class Foldable, class Traversable, for_)
+import Data.Maybe (Maybe)
 import Data.Tuple (Tuple(..))
 import Effect (Effect)
-import Effect.Console (log)
-import Partial.Unsafe (unsafePartial)
-import Prelude (class Applicative, class Apply, class Bind, class Eq, class Functor, class Monad, class Monoid, class Semigroup, class Show, class Ord, Unit, compare, const, discard, flip, eq, map, mod, negate, not, pure, show, unit, ($), (&&), (+), (<), (<$>), (<>), (==), (>), (>=), (>>>), (<*>), (#))
-import Test.Assert (assert, assertEqual, assertThrows)
-import Test.QuickCheck.Arbitrary (class Arbitrary, arbitrary)
-import Test.QuickCheck.Laws.Control (checkApplicative, checkApply, checkBind, checkMonad)
-import Test.QuickCheck.Laws.Data (checkEq, checkFoldable, checkFunctor, checkMonoid, checkSemigroup)
-import Type.Proxy (Proxy(..), Proxy2(..))
+import Prelude (class Eq, class Show, Unit, discard, map, (#), (<*>))
+import Test.Assert (assertEqual)
+
 
 fixYesNo :: forall a.
             { no :: Array a,     yes :: Array a } ->

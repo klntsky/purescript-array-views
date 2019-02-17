@@ -164,7 +164,7 @@ last av = av !! (length av - 1)
 
 
 -- | Perform deferred `slice`. This function allows the garbage collector to
--- | free the array referenced by the given `ArrayView`.
+-- | free unused parts of the array referenced by given `ArrayView`.
 -- |
 -- | *O(n)*
 -- |
@@ -400,8 +400,3 @@ foldM f = use (A.foldM f)
 
 foldRecM :: forall m a b. MonadRec m => (a -> b -> m a) -> a -> ArrayView b -> m a
 foldRecM f = use (A.foldRecM f)
-
--- * internal
-
-toNonNegative :: Int -> Int
-toNonNegative n = if n > 0 then n else 0

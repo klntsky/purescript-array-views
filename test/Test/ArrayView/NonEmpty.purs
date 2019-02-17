@@ -6,29 +6,20 @@ module Test.ArrayView.NonEmpty
        )
 where
 
-import Test.ArrayView.Common
+import Test.ArrayView.Common (equal)
 
 import Data.Array as A
-import Data.ArrayView as AV
-import Data.ArrayView.NonEmpty as NEAV
-import Data.Array.NonEmpty as NE
 import Data.Array.NonEmpty (NonEmptyArray)
+import Data.Array.NonEmpty as NE
 import Data.ArrayView.Internal
-import Data.Generic.Rep.Show (genericShow)
+import Data.ArrayView.NonEmpty as NEAV
 import Data.Maybe (Maybe(..))
-import Data.Newtype (class Newtype)
-import Data.Profunctor.Strong ((***))
-import Data.Traversable (class Foldable, class Traversable, for_)
+import Data.Traversable (for_)
 import Data.Tuple (Tuple(..))
 import Effect (Effect)
-import Effect.Console (log)
 import Partial.Unsafe (unsafePartial)
-import Prelude (class Applicative, class Apply, class Bind, class Eq, class Functor, class Monad, class Monoid, class Semigroup, class Show, class Ord, Unit, compare, const, discard, flip, eq, map, mod, negate, not, pure, show, unit, ($), (&&), (+), (<), (<$>), (<>), (==), (>), (>=), (>>>), (<<<), (<*>), (#))
-import Test.Assert (assert, assertEqual, assertThrows)
-import Test.QuickCheck.Arbitrary (class Arbitrary, arbitrary)
-import Test.QuickCheck.Laws.Control (checkApplicative, checkApply, checkBind, checkMonad)
-import Test.QuickCheck.Laws.Data (checkEq, checkFoldable, checkFunctor, checkMonoid, checkSemigroup)
-import Type.Proxy (Proxy(..), Proxy2(..))
+import Prelude (Unit, compare, const, discard, eq, flip, map, negate, not, ($), (&&), (+), (<), (<<<), (>), (>=))
+import Test.Assert (assertThrows)
 
 
 checkNonEmptySlices :: Int -> Int ->
@@ -80,6 +71,8 @@ checkNonEmptySlices i j (Tuple ne neav) = do
   let fold_f' = (\a b -> Just $ a + b)
   equal (NEAV.foldRecM fold_f' 1 neav)
         (NE.foldRecM  fold_f' 1 ne)
+
+  equal (NEAV.force neav)       (neav)
 
 
 checkNonEmptyWithIndex :: Int -> Tuple (NonEmptyArray Int) (NonEmptyArrayView Int) -> Effect Unit
