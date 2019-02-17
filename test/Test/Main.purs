@@ -1,7 +1,7 @@
 module Test.Main where
 
-import Test.ArrayView
-import Test.ArrayView.Common
+import Test.ArrayView (checkCombinations, checkSlices, checkWithIndex, checkWithPredicate)
+import Test.ArrayView.Common (both, inspect)
 import Test.ArrayView.Laws (checkLaws)
 import Test.ArrayView.NonEmpty
 
@@ -9,7 +9,7 @@ import Data.Array as A
 import Data.Array.NonEmpty (NonEmptyArray)
 import Data.Array.NonEmpty as NE
 import Data.ArrayView as AV
-import Data.ArrayView.Internal
+import Data.ArrayView.Internal (ArrayView, NonEmptyArrayView, fromArray, toArray)
 import Data.ArrayView.NonEmpty as NEAV
 import Data.Traversable (for_)
 import Data.Tuple (Tuple(..))

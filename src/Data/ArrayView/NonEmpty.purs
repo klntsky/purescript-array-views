@@ -2,7 +2,6 @@ module Data.ArrayView.NonEmpty
   ( module Exports
   , fromArrayView
   , fromNonEmpty
-  , toArrayView
   , toNonEmpty
   , fromFoldable
   , fromFoldable1
@@ -101,8 +100,8 @@ import Data.Array.NonEmpty (NonEmptyArray)
 import Data.Array.NonEmpty as NE
 import Data.ArrayView (use)
 import Data.ArrayView as AV
-import Data.ArrayView.Internal (ArrayView(..), NonEmptyArrayView(..), fromArray, fromNEAV, toNonNegative)
-import Data.ArrayView.Internal (NonEmptyArrayView) as Exports
+import Data.ArrayView.Internal (ArrayView(..), NonEmptyArrayView(..), fromArray)
+import Data.ArrayView.Internal (NonEmptyArrayView, toArrayView) as Exports
 import Data.Foldable (class Foldable)
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Newtype (unwrap, wrap)
@@ -111,7 +110,7 @@ import Data.Semigroup.Foldable (class Foldable1)
 import Data.Tuple (Tuple)
 import Data.Unfoldable (class Unfoldable)
 import Data.Unfoldable1 (class Unfoldable1)
-import Prelude (class Applicative, class Eq, class Monad, class Ord, Ordering, bind, eq, flip, map, mempty, not, otherwise, pure, (+), (-), (<=), (<>), (==), (>>>), (>))
+import Prelude (class Applicative, class Eq, class Monad, class Ord, Ordering, bind, eq, flip, map, mempty, otherwise, pure, (+), (-), (<>), (==), (>>>), (<))
 
 
 -- | *O(1)*
@@ -123,12 +122,8 @@ fromArrayView av = case AV.uncons av of
 fromNonEmpty :: forall a. NonEmpty ArrayView a -> NonEmptyArrayView a
 fromNonEmpty = wrap
 
-toArrayView :: forall a. NonEmptyArrayView a -> ArrayView a
-toArrayView = fromNEAV
-
 toNonEmpty :: forall a. NonEmptyArrayView a -> NonEmpty ArrayView a
 toNonEmpty = unwrap
-
 
 fromFoldable :: forall f a. Foldable f => f a -> Maybe (NonEmptyArrayView a)
 fromFoldable = use (NE.fromFoldable :: f a -> Maybe (NonEmptyArray a))
@@ -320,7 +315,7 @@ takeWhile :: forall a. (a -> Boolean) -> NonEmptyArrayView a -> ArrayView a
 takeWhile p neav = (span p neav).init
 
 drop :: forall a. Int -> NonEmptyArrayView a -> ArrayView a
-drop n neav = slice (toNonNegative n) (length neav) neav
+drop n neav = slice (if n < 0 then 0 else n) (length neav) neav
 
 dropEnd :: forall a. Int -> NonEmptyArrayView a -> ArrayView a
 dropEnd n neav = take (length neav - n) neav

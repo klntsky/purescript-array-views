@@ -83,14 +83,19 @@ checkNonEmptyWithIndex ix (Tuple ne neav) = do
   equal (NEAV.insertAt ix ix neav)   (NE.insertAt ix ix ne)
   equal (NEAV.deleteAt ix neav)      (NE.deleteAt ix ne)
   equal (NEAV.updateAt ix ix neav)   (NE.updateAt ix ix ne)
-  equal (NEAV.updateAtIndices [Tuple ix 0, Tuple ix 1] neav)
-        (NE.updateAtIndices   [Tuple ix 0, Tuple ix 1] ne)
-  equal (NEAV.modifyAt ix (_ + 1) neav)
-        (NE.modifyAt ix (_ + 1) ne)
-  equal (NEAV.modifyAtIndices [ix] (_ + 1) neav)
-        (NE.modifyAtIndices   [ix] (_ + 1) ne)
-  equal (NEAV.alterAt ix (\x -> Just x) neav)
-        (NE.alterAt   ix (\x -> Just x) ne)
+
+  let ixs = [Tuple ix 0, Tuple ix 1]
+  equal (NEAV.updateAtIndices ixs neav)
+        (NE.updateAtIndices   ixs ne)
+  let f = (_ + 1)
+  equal (NEAV.modifyAt ix f neav)    (NE.modifyAt ix f ne)
+
+  equal (NEAV.modifyAtIndices [ix] f neav)
+        (NE.modifyAtIndices   [ix] f ne)
+
+  let g x = Just x
+  equal (NEAV.alterAt ix g neav)     (NE.alterAt   ix g ne)
+
   equal (NEAV.takeEnd ix neav)       (NE.takeEnd ix ne)
   equal (NEAV.insert ix neav)        (NE.insert ix ne)
 
@@ -100,25 +105,26 @@ checkNonEmptyWithIndex ix (Tuple ne neav) = do
   for_ (-5 A... 5) \iy -> do
     equal (NEAV.slice iy ix neav)    (NE.slice iy ix ne)
 
-  equal (NEAV.take ix neav)       (NE.take ix ne)
-  equal (NEAV.drop ix neav)       (NE.drop ix ne)
-  equal (NEAV.dropEnd ix neav)    (NE.dropEnd ix ne)
+  equal (NEAV.take ix neav)          (NE.take ix ne)
+  equal (NEAV.drop ix neav)          (NE.drop ix ne)
+  equal (NEAV.dropEnd ix neav)       (NE.dropEnd ix ne)
 
-  equal (NEAV.delete ix neav)     (NE.delete ix ne)
+  equal (NEAV.delete ix neav)        (NE.delete ix ne)
 
   for_ [ (\x y -> x > y)
        , (\x y -> x < y)
        ] \pred -> do
-    equal (NEAV.deleteBy pred ix neav) (NE.deleteBy pred ix ne)
+    equal (NEAV.deleteBy pred ix neav)
+          (NE.deleteBy pred ix ne)
 
   if ix >= 0 && ix < NEAV.length neav
     then
     equal (unsafePartial (NEAV.unsafeIndex neav ix))
           (unsafePartial (NE.unsafeIndex ne ix))
     else
-    assertThrows \_ ->
-    equal (unsafePartial (NEAV.unsafeIndex neav ix))
-          (unsafePartial (NE.unsafeIndex ne ix))
+    assertThrows \_ -> do
+      equal (unsafePartial (NEAV.unsafeIndex neav ix))
+            (unsafePartial (NE.unsafeIndex ne ix))
 
 
 checkNonEmptyWithPredicate :: (Int -> Boolean) ->
@@ -146,30 +152,31 @@ checkNonEmptyCombinations :: Int ->
                              Tuple (NonEmptyArray Int) (NonEmptyArrayView Int) ->
                              Effect Unit
 checkNonEmptyCombinations n (Tuple ne neav) = do
-  let ne1 =   NE.cons'   1 (NE.drop n ne)
+  let ne1   = NE.cons'   1 (NE.drop n ne)
       neav1 = NEAV.cons' 1 (NEAV.drop n neav)
-      ne2 =   NE.cons'   0 (NE.take n ne)
+      ne2   = NE.cons'   0 (NE.take n ne)
       neav2 = NEAV.cons' 0 (NEAV.take n neav)
-      av = NEAV.take n neav1
-      a = NE.take n ne1
-      neq = not <<< eq
-  equal (NEAV.union neav1 neav2) (NE.union ne1 ne2)
-  equal (NEAV.union' neav1 av)   (NE.union' ne1 a)
+      av    = NEAV.take n neav1
+      a     = NE.take n ne1
+      neq   = not <<< eq
 
-  equal (NEAV.unionBy neq neav1 neav2) (NE.unionBy neq ne1 ne2)
-  equal (NEAV.unionBy' neq neav1 av)   (NE.unionBy' neq ne1 a)
-  equal (NEAV.difference neav1 neav2)  (NE.difference ne1 ne2)
-  equal (NEAV.difference' neav1 av)    (NE.difference' ne1 a)
+  equal (NEAV.union neav1 neav2)           (NE.union ne1 ne2)
+  equal (NEAV.union' neav1 av)             (NE.union' ne1 a)
 
-  equal (NEAV.intersect neav1 neav2)   (NE.intersect ne1 ne2)
-  equal (NEAV.intersect' neav1 av)     (NE.intersect' ne1 a)
+  equal (NEAV.unionBy neq neav1 neav2)     (NE.unionBy neq ne1 ne2)
+  equal (NEAV.unionBy' neq neav1 av)       (NE.unionBy' neq ne1 a)
+  equal (NEAV.difference neav1 neav2)      (NE.difference ne1 ne2)
+  equal (NEAV.difference' neav1 av)        (NE.difference' ne1 a)
+
+  equal (NEAV.intersect neav1 neav2)       (NE.intersect ne1 ne2)
+  equal (NEAV.intersect' neav1 av)         (NE.intersect' ne1 a)
 
   equal (NEAV.intersectBy neq neav1 neav2) (NE.intersectBy neq ne1 ne2)
   equal (NEAV.intersectBy' neq neav1 av)   (NE.intersectBy' neq ne1 a)
 
   let zipF x y = x + y
   equal (NEAV.zipWith zipF neav1 neav2)    (NE.zipWith zipF ne1 ne2)
-  let zipFA = (\x -> Just <<< zipF x)
+  let zipFA x = Just <<< zipF x
   equal (NEAV.zipWithA zipFA neav1 neav2)  (NE.zipWithA zipFA ne1 ne2)
   equal (NEAV.zip neav1 neav2)             (NE.zip ne1 ne2)
   equal (NEAV.unzip $ NEAV.zip neav1 neav2)

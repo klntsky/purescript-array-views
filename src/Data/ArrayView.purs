@@ -400,3 +400,12 @@ foldM f = use (A.foldM f)
 
 foldRecM :: forall m a b. MonadRec m => (a -> b -> m a) -> a -> ArrayView b -> m a
 foldRecM f = use (A.foldRecM f)
+
+-- * internal
+
+whenNonEmpty :: forall a b. (ArrayView a -> b) -> ArrayView a -> Maybe b
+whenNonEmpty _ (View { len: 0 }) = Nothing
+whenNonEmpty f av           = Just (f av)
+
+toNonNegative :: Int -> Int
+toNonNegative n = if n > 0 then n else 0

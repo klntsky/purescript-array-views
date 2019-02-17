@@ -12,10 +12,8 @@ module Data.ArrayView.Internal
   , class ArrayToView
   , use
 
-  , whenNonEmpty
   , fromNonEmptyArray
-  , fromNEAV
-  , toNonNegative
+  , toArrayView
   )
 where
 
@@ -176,7 +174,7 @@ derive newtype instance functorNEArrayView :: Functor NonEmptyArrayView
 
 instance semigroupNonEmptyArrayView :: Semigroup (NonEmptyArrayView a) where
   append (NonEmptyArrayView (a :| as)) nebs =
-    wrap (a :| as <> fromNEAV nebs)
+    wrap (a :| as <> toArrayView nebs)
 
 instance functorWithIndexNonEmptyArrayView :: FunctorWithIndex Int NonEmptyArrayView where
   mapWithIndex f (NonEmptyArrayView (a :| fa)) =
@@ -189,7 +187,7 @@ instance bindNonEmptyArrayView :: Bind NonEmptyArrayView where
   bind (NonEmptyArrayView (x :| xs)) f =
     case unwrap (f x) of
       (y :| ys) ->
-        wrap (y :| ys <> concatMap (fromNEAV <<< f) xs)
+        wrap (y :| ys <> concatMap (toArrayView <<< f) xs)
 
 instance applicativeNonEmptyArrayView :: Applicative NonEmptyArrayView where
   pure x = NonEmptyArrayView (x :| mempty)
@@ -202,9 +200,9 @@ instance foldableNonEmptyArrayView :: Foldable NonEmptyArrayView where
   foldMap f = unwrap >>> foldMap f
 
 instance foldableWithIndexNonEmptyArrayView :: FoldableWithIndex Int NonEmptyArrayView where
-  foldrWithIndex f z = fromNEAV >>> foldrWithIndex f z
-  foldlWithIndex f z = fromNEAV >>> foldlWithIndex f z
-  foldMapWithIndex f = fromNEAV >>> foldMapWithIndex f
+  foldrWithIndex f z = toArrayView >>> foldrWithIndex f z
+  foldlWithIndex f z = toArrayView >>> foldlWithIndex f z
+  foldMapWithIndex f = toArrayView >>> foldMapWithIndex f
 
 instance foldable1NonEmptyArrayView :: Foldable1 NonEmptyArrayView where
   foldMap1 f m = foldMap1 f (unwrap m)
@@ -296,8 +294,8 @@ else instance arrayToViewFunctor :: (Functor f, ArrayToView a b)
   use = map use
 
 
-fromNEAV :: forall a. NonEmptyArrayView a -> ArrayView a
-fromNEAV (NonEmptyArrayView m) =
+toArrayView :: forall a. NonEmptyArrayView a -> ArrayView a
+toArrayView (NonEmptyArrayView m) =
   NE.fromNonEmpty (use (A.cons :: a -> Array a -> Array a)) m
 
 fromNonEmptyArray :: NEA.NonEmptyArray ~> NonEmptyArrayView
@@ -308,10 +306,3 @@ fromNonEmptyArray m =
 toNonEmptyArray :: NonEmptyArrayView ~> NEA.NonEmptyArray
 toNonEmptyArray (NonEmptyArrayView (x :| xs)) =
   NEA.fromNonEmpty (x :| toArray xs)
-
-whenNonEmpty :: forall a b. (ArrayView a -> b) -> ArrayView a -> Maybe b
-whenNonEmpty _ (View { len: 0 }) = Nothing
-whenNonEmpty f av           = Just (f av)
-
-toNonNegative :: Int -> Int
-toNonNegative n = if n > 0 then n else 0
