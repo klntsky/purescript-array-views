@@ -1,16 +1,16 @@
 module Test.Main where
 
-import Test.ArrayView.Laws (checkLaws)
+import Data.ArrayView.Internal
+import Test.ArrayView
 import Test.ArrayView.Common
 import Test.ArrayView.NonEmpty
-import Test.ArrayView
+import Test.ArrayView.Laws (checkLaws)
 
 import Data.Array as A
+import Data.Array.NonEmpty (NonEmptyArray)
+import Data.Array.NonEmpty as NE
 import Data.ArrayView as AV
 import Data.ArrayView.NonEmpty as NEAV
-import Data.Array.NonEmpty as NE
-import Data.Array.NonEmpty (NonEmptyArray)
-import Data.ArrayView.Internal
 import Data.Generic.Rep.Show (genericShow)
 import Data.Maybe (Maybe(..))
 import Data.Newtype (class Newtype)
@@ -83,6 +83,7 @@ checkAssertions = do
         for_ (-5 A... 10) \ix -> do
           checkWithIndex ix avslice aslice
           for_ nonempties (checkNonEmptyWithIndex ix)
+
         -- test functions that require a predicate
         for_ [ (_ > 5)
              , const false
@@ -92,6 +93,7 @@ checkAssertions = do
              , (_ < 5) ] \pred -> do
           checkWithPredicate pred avslice aslice
           for_ nonempties (checkNonEmptyWithPredicate pred)
+
         -- test functions that require two array views
         for_ (0 A... 3) \n -> do
           checkCombinations
@@ -99,6 +101,7 @@ checkAssertions = do
             (AV.drop n avslice)
             (A.take n aslice)
             (A.drop n aslice)
+          for_ nonempties (checkNonEmptyCombinations n)
 
 
 -- Covering edge cases

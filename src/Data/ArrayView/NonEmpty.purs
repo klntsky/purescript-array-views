@@ -20,7 +20,7 @@ module Data.ArrayView.NonEmpty
   , cons'
   , snoc
   , snoc'
-  , appendArray
+  , appendArrayView
   , insert
   , insertBy
 
@@ -97,12 +97,12 @@ module Data.ArrayView.NonEmpty
 import Control.Monad.Rec.Class (class MonadRec)
 import Data.Array.NonEmpty (NonEmptyArray)
 import Data.Array.NonEmpty as NE
-import Data.ArrayView as AV
 import Data.ArrayView (use)
+import Data.ArrayView as AV
 import Data.ArrayView.Internal (ArrayView(..), NonEmptyArrayView(..), fromArray, fromNEAV)
 import Data.ArrayView.Internal (NonEmptyArrayView) as Exports
 import Data.Foldable (class Foldable)
-import Data.Maybe (Maybe(..))
+import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Newtype (unwrap, wrap)
 import Data.NonEmpty (NonEmpty, (:|))
 import Data.Semigroup.Foldable (class Foldable1)
@@ -175,8 +175,8 @@ snoc = use (NE.snoc :: NonEmptyArray a -> a -> NonEmptyArray a)
 snoc' :: forall a. ArrayView a -> a -> NonEmptyArrayView a
 snoc' = use (NE.snoc' :: Array a -> a -> NonEmptyArray a)
 
-appendArray :: forall a. NonEmptyArrayView a -> ArrayView a -> NonEmptyArrayView a
-appendArray = use (NE.appendArray :: NonEmptyArray a -> Array a -> NonEmptyArray a)
+appendArrayView :: forall a. NonEmptyArrayView a -> ArrayView a -> NonEmptyArrayView a
+appendArrayView = use (NE.appendArray :: NonEmptyArray a -> Array a -> NonEmptyArray a)
 
 insert :: forall a. Ord a => a -> NonEmptyArrayView a -> NonEmptyArrayView a
 insert a = use (NE.insert a)
@@ -185,13 +185,14 @@ insertBy :: forall a. (a -> a -> Ordering) -> a -> NonEmptyArrayView a -> NonEmp
 insertBy f = use (NE.insertBy f)
 
 head :: forall a. NonEmptyArrayView a -> a
-head = use (NE.head :: NonEmptyArray a -> a)
+head (NonEmptyArrayView (a :| _)) = a
 
 last :: forall a. NonEmptyArrayView a -> a
-last = use (NE.last :: NonEmptyArray a -> a)
+last (NonEmptyArrayView (a :| as)) =
+  fromMaybe a (AV.last as)
 
 tail :: forall a. NonEmptyArrayView a -> ArrayView a
-tail = use (NE.tail :: NonEmptyArray a -> Array a)
+tail (NonEmptyArrayView (_ :| as)) = as
 
 init :: forall a. NonEmptyArrayView a -> ArrayView a
 init = use (NE.init :: NonEmptyArray a -> Array a)
@@ -339,7 +340,7 @@ span
 span f (NonEmptyArrayView (a :| as))
   | f a = let tmp = AV.span f as in
     tmp { init = pure a <> tmp.init }
-  | otherwise = { init: mempty, rest: as }
+  | otherwise = { init: mempty, rest: AV.cons a as }
 
 nub :: forall a. Ord a => NonEmptyArrayView a -> NonEmptyArrayView a
 nub = use (NE.nub :: NonEmptyArray a -> NonEmptyArray a)
