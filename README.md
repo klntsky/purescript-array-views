@@ -24,12 +24,26 @@ It should be noted once more that iterating over ordinary arrays using `cons` an
 
 For every function in `Data.Array` there is a corresponding function in `Data.ArrayView`, though most of them are plain reuses up to conversions between `Array` and `ArrayView`. Those with different time complexities are listed below:
 
-| functions | Array | ArrayView | Note |
-|----------|-------|-----------|-------|
-| `slice`, `uncons`, `unsnoc`, `tail`, `init`, `take`, `drop`, `takeEnd`, `dropEnd` | *O(n)* | *O(1)* | *n* is the length of the resulting array
-|`span` (used by `takeWhile`, `dropWhile`) | *O(n+m)* | *O(n)* | *n* is the length of the `init` array, *m* is the length of the `rest` |
-| `ArrayView.toArray` |  | *O(n)* | *O(1)* if the given view corresponds to the whole array |
-| `ArrayView.fromArray` | *O(1)* | |
+| functions                                                                         | Array / NonEmptyArray | ArrayView / NonEmptyArrayView | Note                                                                   |
+|-----------------------------------------------------------------------------------|-----------------------|-------------------------------|------------------------------------------------------------------------|
+| `slice`, `uncons`, `unsnoc`, `tail`, `init`, `take`, `drop`, `takeEnd`, `dropEnd` | *O(n)*                | *O(1)*                        | *n* is the length of the resulting array                               |
+| `span` (used by `takeWhile`, `dropWhile`)                                         | *O(n+m)*              | *O(n)*                        | *n* is the length of the `init` array, *m* is the length of the `rest` |
+| `Data.ArrayView.toArray`                                                          | *-*                   | *O(n)*                        | *O(1)* if the given view corresponds to the whole array                |
+| `Data.ArrayView.fromArray`                                                        | *O(1)*                | *-*                           |                                                                        |
+
+## API
+
+This package's API mimics the API of `purescript-arrays` up to certain extent. For most use cases, just changing the imports is enough.
+
+This table may be useful for incorporating this library into existing codebase:
+
+| Name                            | Replacement                             | Note                                                                                                      |
+|---------------------------------|-----------------------------------------|-----------------------------------------------------------------------------------------------------------|
+| `Data.Array`                    | `Data.ArrayView`                        |                                                                                                           |
+| `Data.Array.NonEmpty`           | `Data.ArrayView.NonEmpty`               |                                                                                                           |
+| `Data.Array.NonEmpty.fromArray` | `Data.ArrayView.NonEmpty.fromArrayView` |                                                                                                           |
+| `Data.Array.NonEmpty.toArray`   | `Data.ArrayView.NonEmpty.toArrayView`   |                                                                                                           |
+| `Data.Array.some`, `many`       | `Data.ArrayView.some`, `many`           | `Lazy (f (Array a))` constaint  is not changed to `Lazy (f (ArrayView a))`   because of `OrphanInstances` |
 
 ## Impact on GC
 
