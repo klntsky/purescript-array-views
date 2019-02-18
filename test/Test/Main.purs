@@ -19,10 +19,27 @@ import Prelude (Unit, compare, const, discard, mod, negate, pure, show, unit, (<
 import Test.Assert (assertEqual)
 
 
--- * set to true to get verbose logs
-debug :: Boolean
-debug = false
-
+-- | Some constants used in tests
+config :: { debug :: Boolean
+          , lengths :: Array Int
+          , indices :: Array Int
+          , additionalIndex :: Array Int
+          , predicates :: Array (Int -> Boolean)
+          }
+config =
+  { debug: false --  set to true to get verbose logs
+  , lengths: 0 A... 12
+  , indices: -10 A... 10
+  , additionalIndex: -5 A... 10
+  , predicates:
+    [ (_ > 5)
+    , const false
+    , const true
+    , (\x -> x `mod` 2 == 1)
+    , (\x -> x `mod` 2 == 0)
+    , (_ < 5)
+    ]
+  }
 
 main :: Effect Unit
 main = do
@@ -42,7 +59,7 @@ checkAssertions = do
   -- indices are correct.
 
   -- For all possible lengths...
-  for_ (0 A... 12) \len -> do
+  for_ config.lengths \len -> do
     let a  = A.range 1 len
         av = AV.range 1 len
 
@@ -54,8 +71,8 @@ checkAssertions = do
               " av: "  <> inspect av)
 
     -- for all possible indices i & j...
-    for_ (-10 A... 10) \i -> do
-      for_ (-10 A...10) \j -> do
+    for_ config.indices \i -> do
+      for_ config.indices \j -> do
         -- ...check that slices from i to j are equal
         let aslice = A.slice i j a
             avslice = AV.slice i j av
@@ -71,22 +88,17 @@ checkAssertions = do
         for_ nonempties (checkNonEmptySlices i j)
 
         -- test functions that require additional index
-        for_ (-5 A... 10) \ix -> do
+        for_ config.additionalIndex \ix -> do
           checkWithIndex ix avslice aslice
           for_ nonempties (checkNonEmptyWithIndex ix)
 
         -- test functions that require a predicate
-        for_ [ (_ > 5)
-             , const false
-             , const true
-             , (\x -> x `mod` 2 == 1)
-             , (\x -> x `mod` 2 == 0)
-             , (_ < 5) ] \pred -> do
+        for_ config.predicates \pred -> do
           checkWithPredicate pred avslice aslice
           for_ nonempties (checkNonEmptyWithPredicate pred)
 
         -- test functions that require two array views
-        for_ (0 A... 3) \n -> do
+        for_ config.additionalIndex \n -> do
           checkCombinations
             (AV.take n avslice)
             (AV.drop n avslice)
@@ -136,10 +148,14 @@ checkEdgeCases = do
     -- in Eq instance definition
     assertEqual { expected: xs == ys
                 , actual: fromArray xs == fromArray ys }
+    assertEqual { expected: NE.fromArray xs == NE.fromArray ys
+                , actual: NEAV.fromArrayView (fromArray xs) == NEAV.fromArrayView (fromArray ys) }
 
     -- in Ord instance defintion
     assertEqual { expected: xs `compare` ys
                 , actual: fromArray xs `compare` fromArray ys }
+    assertEqual { expected: NE.fromArray xs `compare` NE.fromArray ys
+                , actual: NEAV.fromArrayView (fromArray xs) `compare` NEAV.fromArrayView (fromArray ys) }
 
 
 checkArrayToView :: Effect Unit
@@ -163,4 +179,4 @@ checkArrayToView = do
 
 
 logDebug :: String -> Effect Unit
-logDebug = if debug then log else const (pure unit)
+logDebug = if config.debug then log else const (pure unit)
