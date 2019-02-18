@@ -3,7 +3,8 @@ module Test.Main where
 import Test.ArrayView (checkCombinations, checkSlices, checkWithIndex, checkWithPredicate)
 import Test.ArrayView.Common (both, inspect)
 import Test.ArrayView.Laws (checkLaws)
-import Test.ArrayView.NonEmpty
+import Test.ArrayView.NonEmpty (checkNonEmptyCombinations, checkNonEmptySlices, checkNonEmptyWithIndex, checkNonEmptyWithPredicate)
+import Test.ArrayView.API
 
 import Data.Array as A
 import Data.Array.NonEmpty (NonEmptyArray)

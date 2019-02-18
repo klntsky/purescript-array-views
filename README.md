@@ -37,13 +37,14 @@ This package's API mimics the API of `purescript-arrays` up to certain extent. F
 
 This table may be useful for incorporating this library into existing codebase:
 
-| Name                            | Replacement                             | Note                                                                                                      |
-|---------------------------------|-----------------------------------------|-----------------------------------------------------------------------------------------------------------|
-| `Data.Array`                    | `Data.ArrayView`                        |                                                                                                           |
-| `Data.Array.NonEmpty`           | `Data.ArrayView.NonEmpty`               |                                                                                                           |
-| `Data.Array.NonEmpty.fromArray` | `Data.ArrayView.NonEmpty.fromArrayView` |                                                                                                           |
-| `Data.Array.NonEmpty.toArray`   | `Data.ArrayView.NonEmpty.toArrayView`   |                                                                                                           |
-| `Data.Array.some`, `many`       | `Data.ArrayView.some`, `many`           | `Lazy (f (Array a))` constaint  is not changed to `Lazy (f (ArrayView a))`   because of `OrphanInstances` |
+| Name                              | Replacement                               | Note                                                                                                      |
+|-----------------------------------|-------------------------------------------|-----------------------------------------------------------------------------------------------------------|
+| `Data.Array`                      | `Data.ArrayView`                          |                                                                                                           |
+| `Data.Array.NonEmpty`             | `Data.ArrayView.NonEmpty`                 |                                                                                                           |
+| `Data.Array.NonEmpty.fromArray`   | `Data.ArrayView.NonEmpty.fromArrayView`   |                                                                                                           |
+| `Data.Array.NonEmpty.toArray`     | `Data.ArrayView.NonEmpty.toArrayView`     |                                                                                                           |
+| `Data.Array.some`, `many`         | `Data.ArrayView.some`, `many`             | `Lazy (f (Array a))` constaint  is not changed to `Lazy (f (ArrayView a))`   because of `OrphanInstances` |
+| `Data.Array.NonEmpty.appendArray` | `Data.ArrayView.NonEmpty.appendArrayView` |                                                                                                           |
 
 ## Impact on GC
 
@@ -54,7 +55,3 @@ If you need to free unused parts of array, use `Data.ArrayView.force :: forall a
 ## Benchmarks
 
 ![](img/withUncons.png)
-
-# Disclaimer
-
-The code is in early stage of development and was not tested yet.
