@@ -11,7 +11,7 @@ module Data.ArrayView.NonEmpty
   , (..), range
 
   , replicate
---   , some
+  , some
 
   , length
 
@@ -95,6 +95,8 @@ module Data.ArrayView.NonEmpty
   , force
   ) where
 
+import Control.Alternative (class Alternative)
+import Control.Lazy (class Lazy)
 import Control.Monad.Rec.Class (class MonadRec)
 import Data.Array.NonEmpty (NonEmptyArray)
 import Data.Array.NonEmpty as NE
@@ -148,12 +150,11 @@ infix 8 range as ..
 replicate :: forall a. Int -> a -> NonEmptyArrayView a
 replicate = use (NE.replicate :: Int -> a -> NonEmptyArray a)
 
--- some
---   :: forall f a
---    . Alternative f
---   => Lazy (f (ArrayView a))
---   => f a -> f (NonEmptyArrayView a)
-
+some  :: forall f a
+      . Alternative f
+      => Lazy (f (Array a))
+      => f a -> f (NonEmptyArrayView a)
+some f = use (NE.some f)
 
 length :: forall a. NonEmptyArrayView a -> Int
 length (NonEmptyArrayView (a :| View { len })) = len + 1

@@ -99,9 +99,8 @@ import Data.ArrayView.Internal
   , use
   ) as Exports
 
-import Control.Alt ((<|>))
 import Control.Alternative (class Alternative)
-import Control.Lazy (class Lazy, defer)
+import Control.Lazy (class Lazy)
 import Control.Monad.Rec.Class (class MonadRec)
 import Data.Array as A
 import Data.Array.NonEmpty (NonEmptyArray)
@@ -112,7 +111,7 @@ import Data.Traversable (class Foldable)
 import Data.Traversable (scanl, scanr) as Exports
 import Data.Tuple (Tuple)
 import Data.Unfoldable (class Unfoldable)
-import Prelude (class Applicative, class Eq, class Monad, class Ord, type (~>), Ordering, bind, mempty, otherwise, pure, (&&), (+), (-), (<), (<$>), (<*>), (<=), (>), (>=), (>>>), (||))
+import Prelude (class Applicative, class Eq, class Monad, class Ord, type (~>), Ordering, bind, mempty, otherwise, pure, (&&), (+), (-), (<), (<=), (>), (>=), (>>>), (||))
 
 
 fromFoldable :: forall f. Foldable f => f ~> ArrayView
@@ -134,11 +133,11 @@ null _                 = false
 replicate :: forall a. Int -> a -> ArrayView a
 replicate = use (A.replicate :: Int -> a -> Array a)
 
-some :: forall f a. Alternative f => Lazy (f (ArrayView a)) => f a -> f (ArrayView a)
-some v = (:) <$> v <*> defer (\_ -> many v)
+some :: forall f a. Alternative f => Lazy (f (Array a)) => f a -> f (ArrayView a)
+some v = use (A.some v)
 
-many :: forall f a. Alternative f => Lazy (f (ArrayView a)) => f a -> f (ArrayView a)
-many v = some v <|> pure mempty
+many :: forall f a. Alternative f => Lazy (f (Array a)) => f a -> f (ArrayView a)
+many v = use (A.many v)
 
 -- | *O(n)*
 cons :: forall a. a -> ArrayView a -> ArrayView a
