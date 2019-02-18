@@ -17,6 +17,10 @@ module Data.ArrayView.Internal
   )
 where
 
+import Control.Extend (class Extend, extend)
+import Control.MonadPlus (class MonadPlus)
+import Control.MonadZero (class Alternative, class MonadZero)
+import Control.Plus (class Alt, class Plus, alt)
 import Data.Array as A
 import Data.Array.NonEmpty as NEA
 import Data.Bifunctor (bimap)
@@ -37,7 +41,7 @@ import Data.TraversableWithIndex (class TraversableWithIndex, traverseWithIndexD
 import Data.Tuple
 import Data.Unfoldable (class Unfoldable, unfoldr)
 import Data.Unfoldable1 (class Unfoldable1, unfoldr1)
-import Prelude (class Applicative, class Apply, class Bind, class Eq, class Functor, class Monad, class Monoid, class Ord, class Semigroup, class Show, type (~>), append, mempty, ap, apply, compare, eq, map, otherwise, show, (&&), (+), (-), (<), (<<<), (<>), (==), (>=), (>>>), (>))
+import Prelude (class Applicative, class Apply, class Bind, class Eq, class Functor, class Monad, class Monoid, class Ord, class Semigroup, class Show, type (~>), ap, append, apply, compare, eq, map, mempty, otherwise, show, (&&), (+), (-), (<), (<<<), (<>), (==), (>=), (>>>))
 
 
 -- * ArrayView
@@ -124,6 +128,22 @@ instance semigroupArrayView :: Semigroup (ArrayView a) where
 
 instance monoidArrayView :: Monoid (ArrayView a) where
   mempty = empty
+
+-- classes from `purescript-control`
+
+instance altArrayView :: Alt ArrayView where
+  alt f = use (alt (toArray f))
+
+instance plusArrayView :: Plus ArrayView where
+  empty = View { from: 0, len: 0, arr: [] }
+
+instance alternativeArrayView :: Alternative ArrayView
+
+instance extendArrayView :: Extend ArrayView where
+  extend f wa = fromArray (extend (use f) (toArray wa))
+
+instance monadZeroArrayView :: MonadZero ArrayView
+instance monadPlusArrayView :: MonadPlus ArrayView
 
 
 index :: forall a. ArrayView a -> Int -> Maybe a
@@ -218,6 +238,8 @@ instance traversable1NonEmptyArrayView :: Traversable1 NonEmptyArrayView where
   traverse1 = traverse1Default
   sequence1 m = map fromNonEmptyArray (sequence1 (toNonEmptyArray m))
 
+instance altNonEmptyArrayView :: Alt NonEmptyArrayView where
+  alt f = use (alt (toNonEmptyArray f))
 
 -- internal
 
