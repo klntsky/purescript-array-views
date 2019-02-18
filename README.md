@@ -55,3 +55,7 @@ If you need to free unused parts of array, use `Data.ArrayView.force :: forall a
 ## Benchmarks
 
 ![](img/withUncons.png)
+
+## Documentation
+
+Module documentation is [published on Pursuit](http://pursuit.purescript.org/packages/purescript-array-views).
