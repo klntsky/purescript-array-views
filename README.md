@@ -1,7 +1,7 @@
 # purescript-array-views
 
-[![](https://img.shields.io/librariesio/github/8084/purescript-array-views.svg)](https://libraries.io/github/8084/purescript-array-views)
-[![Build status](https://travis-ci.org/8084/purescript-array-views.svg?branch=master)](https://travis-ci.org/8084/purescript-array-views)
+[![](https://img.shields.io/librariesio/github/klntsky/purescript-array-views.svg)](https://libraries.io/github/klntsky/purescript-array-views)
+[![Build status](https://travis-ci.org/klntsky/purescript-array-views.svg?branch=master)](https://travis-ci.org/klntsky/purescript-array-views)
 
 Time complexity of `uncons` called on `Array` is *O(n)* because [`.slice()` is used](https://github.com/purescript/purescript-arrays/blob/d218f6f6fa1a41ce3bd6daeef72f9b197c1eb8d2/src/Data/Array.js#L109)  to preserve purity. Thus iterating over `Array` using `uncons` is *O(n<sup>2</sup>)*.
 
