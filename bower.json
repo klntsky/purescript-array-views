@@ -9,7 +9,7 @@
   "license": "BSD-3-Clause",
   "repository": {
     "type": "git",
-    "url": "git://github.com/8084/purescript-array-views.git"
+    "url": "git://github.com/klntsky/purescript-array-views.git"
   },
   "dependencies": {
     "purescript-prelude": "^4.1.0",
