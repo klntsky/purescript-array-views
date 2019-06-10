@@ -4,7 +4,6 @@ import Test.ArrayView (checkCombinations, checkSlices, checkWithIndex, checkWith
 import Test.ArrayView.Common (both, inspect)
 import Test.ArrayView.Laws (checkLaws)
 import Test.ArrayView.NonEmpty (checkNonEmptyCombinations, checkNonEmptySlices, checkNonEmptyWithIndex, checkNonEmptyWithPredicate)
-import Test.ArrayView.API
 
 import Data.Array as A
 import Data.Array.NonEmpty (NonEmptyArray)
@@ -44,7 +43,7 @@ config =
 
 main :: Effect Unit
 main = do
-  log "checking assetions"
+  log "checking assertions"
   checkAssertions
   log "checking edge cases"
   checkEdgeCases
