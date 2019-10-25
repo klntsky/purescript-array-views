@@ -394,10 +394,10 @@ zip = use (A.zip :: Array a -> Array b -> Array (Tuple a b))
 unzip :: forall a b. ArrayView (Tuple a b) -> Tuple (ArrayView a) (ArrayView b)
 unzip = use (A.unzip :: Array (Tuple a b) -> Tuple (Array a) (Array b))
 
-foldM :: forall m a b. Monad m => (a -> b -> m a) -> a -> ArrayView b -> m a
+foldM :: forall m a b. Monad m => (b -> a -> m b) -> b -> ArrayView a -> m b
 foldM f = use (A.foldM f)
 
-foldRecM :: forall m a b. MonadRec m => (a -> b -> m a) -> a -> ArrayView b -> m a
+foldRecM :: forall m a b. MonadRec m => (b -> a -> m b) -> b -> ArrayView a -> m b
 foldRecM f = use (A.foldRecM f)
 
 -- * internal

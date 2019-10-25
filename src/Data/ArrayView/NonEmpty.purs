@@ -428,10 +428,10 @@ zip = use (NE.zip :: NonEmptyArray a -> NonEmptyArray b -> NonEmptyArray (Tuple 
 unzip :: forall a b. NonEmptyArrayView (Tuple a b) -> Tuple (NonEmptyArrayView a) (NonEmptyArrayView b)
 unzip = use (NE.unzip :: NonEmptyArray (Tuple a b) -> Tuple (NonEmptyArray a) (NonEmptyArray b))
 
-foldM :: forall m a b. Monad m => (a -> b -> m a) -> a -> NonEmptyArrayView b -> m a
+foldM :: forall m a b. Monad m => (b -> a -> m b) -> b -> NonEmptyArrayView a -> m b
 foldM f = use (NE.foldM f)
 
-foldRecM :: forall m a b. MonadRec m => (a -> b -> m a) -> a -> NonEmptyArrayView b -> m a
+foldRecM :: forall m a b. MonadRec m => (b -> a -> m b) -> b -> NonEmptyArrayView a -> m b
 foldRecM f = use (NE.foldRecM f)
 
 unsafeIndex :: forall a. Partial => NonEmptyArrayView a -> Int -> a
